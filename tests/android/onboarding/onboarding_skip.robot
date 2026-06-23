@@ -1,8 +1,18 @@
 *** Settings ***
-Resource    ../../../resources/pages/onboarding/landing_screen_page.resource
-
+Library    AppiumLibrary
 
 *** Test Cases ***
-Skip Onboarding From Landing Screen
-    Landing Screen Should Be Visible
-    Skip Landing Screen
+Open Application Test
+
+    Open Application
+    ...    http://127.0.0.1:4723
+    ...    platformName=Android
+    ...    automationName=UiAutomator2
+    ...    deviceName=Android Emulator
+    ...    appPackage=com.bangkokbank.blue.dev
+    ...    appActivity=com.bangkokbank.blue.MainActivity
+    ...    noReset=true
+
+    Capture Page Screenshot
+
+    Close Application
