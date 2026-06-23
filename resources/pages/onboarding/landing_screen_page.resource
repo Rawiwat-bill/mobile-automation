@@ -25,3 +25,7 @@ Switch Landing Language To English
 Skip Landing Screen
     Wait Until Element Is Visible    ${LANDING_SKIP_BUTTON}    ${LANDING_TIMEOUT}
     Click Element                    ${LANDING_SKIP_BUTTON}
+
+Tap Landing Ready Button
+    Wait Until Element Is Visible    ${LANDING_READY_BUTTON}    ${LANDING_TIMEOUT}
+    Click Element                    ${LANDING_READY_BUTTON}
