@@ -1,13 +1,19 @@
+# IDE
+.idea/
+.vscode/
+
+# Robot Framework
 reports/
 output.xml
 log.html
 report.html
 
-apps/android/*.apk
-
+# Python
 __pycache__/
 *.pyc
 
+# Mac
 .DS_Store
-.idea/apps/android/*.apk
-.idea/
+
+# APK
+apps/android/*.apk
