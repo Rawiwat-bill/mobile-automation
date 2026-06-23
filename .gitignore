@@ -1,0 +1,12 @@
+reports/
+output.xml
+log.html
+report.html
+
+apps/android/*.apk
+
+__pycache__/
+*.pyc
+
+.DS_Store
+.idea/
