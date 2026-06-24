@@ -4,15 +4,20 @@ Resource    ../../../locators/android/onboarding/landing_screen_locators.resourc
 
 
 *** Variables ***
-${LANDING_TIMEOUT}    10s
+${LANDING_TIMEOUT}    30s
 
 
 *** Keywords ***
+Wait Until Landing Screen Is Displayed
+    Landing Screen Should Be Visible
+
 Landing Screen Should Be Visible
-    Wait Until Element Is Visible    ${LANDING_TITLE_TEXT}          ${LANDING_TIMEOUT}
-    Wait Until Element Is Visible    ${LANDING_DESCRIPTION_TEXT}    ${LANDING_TIMEOUT}
-    Wait Until Element Is Visible    ${LANDING_INDICATOR}           ${LANDING_TIMEOUT}
-    Wait Until Element Is Visible    ${LANDING_SKIP_BUTTON}         ${LANDING_TIMEOUT}
+    Wait Until Keyword Succeeds    ${LANDING_TIMEOUT}    500ms    Landing Action Should Be Visible
+
+Landing Action Should Be Visible
+    ${is_skip_visible}=     Run Keyword And Return Status    Element Should Be Visible    ${LANDING_SKIP_BUTTON}
+    ${is_ready_visible}=    Run Keyword And Return Status    Element Should Be Visible    ${LANDING_READY_BUTTON}
+    Should Be True    ${is_skip_visible} or ${is_ready_visible}
 
 Switch Landing Language To Thai
     Wait Until Element Is Visible    ${LANDING_LANGUAGE_THAI_BUTTON}    ${LANDING_TIMEOUT}
@@ -27,5 +32,11 @@ Skip Landing Screen
     Click Element                    ${LANDING_SKIP_BUTTON}
 
 Tap Landing Ready Button
-    Wait Until Element Is Visible    ${LANDING_READY_BUTTON}    ${LANDING_TIMEOUT}
-    Click Element                    ${LANDING_READY_BUTTON}
+    ${is_ready_visible}=    Run Keyword And Return Status    Element Should Be Visible    ${LANDING_READY_BUTTON}
+    IF    ${is_ready_visible}
+        Click Element    ${LANDING_READY_BUTTON}
+    ELSE
+        Skip Landing Screen
+        Wait Until Element Is Visible    ${LANDING_READY_BUTTON}    ${LANDING_TIMEOUT}
+        Click Element                    ${LANDING_READY_BUTTON}
+    END

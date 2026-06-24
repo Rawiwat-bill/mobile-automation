@@ -1,0 +1,11 @@
+profile:
+  citizen_id: "1111111111111"
+  date_of_birth: "1990-01-01"
+  mobile_number: "0811111111"
+
+environment:
+  customer_type: "NTB"
+  language: "TH"
+
+expected:
+  onboarding_type: "NEW_TO_BANK"

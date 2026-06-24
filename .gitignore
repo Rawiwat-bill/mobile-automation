@@ -17,3 +17,11 @@ __pycache__/
 
 # APK
 apps/android/*.apk
+
+# Local sensitive test data
+*.local.yaml
+*.secret.yaml
+.env# Local sensitive test data
+*.local.yaml
+*.secret.yaml
+.env

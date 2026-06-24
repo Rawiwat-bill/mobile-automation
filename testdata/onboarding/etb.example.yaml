@@ -1,0 +1,11 @@
+profile:
+  citizen_id: "2222222222222"
+  date_of_birth: "1990-01-01"
+  mobile_number: "0822222222"
+
+environment:
+  customer_type: "ETB"
+  language: "TH"
+
+expected:
+  onboarding_type: "EXISTING_TO_BANK"
