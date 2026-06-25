@@ -1,6 +1,15 @@
 *** Variables ***
 ${PROFILE_TITLE_TEXT}              xpath=//*[@text="Tell us about you"]
-${PROFILE_CITIZEN_ID_INPUT}        id=cid
-${PROFILE_DOB_INPUT}               id=screenProfile_textInputDob
-${PROFILE_MOBILE_NUMBER_INPUT}     id=screenProfile_textInputMobileNumber
-${PROFILE_NEXT_BUTTON}             id=screenProfile_buttonNext
+${PROFILE_CITIZEN_ID_CONTAINER}    xpath=//*[@resource-id="cid-container"]
+${PROFILE_CITIZEN_ID_INPUT}        xpath=//android.widget.EditText[@resource-id="cid"]
+${PROFILE_DOB_CONTAINER}           xpath=//*[@resource-id="screenProfile_textInputDob-container"]
+${PROFILE_DOB_INPUT}               xpath=//*[@resource-id="screenProfile_textInputDob"]
+${PROFILE_DOB_INPUT_FALLBACK}      xpath=//*[@content-desc="profile_screen.dob"]
+${PROFILE_DOB_DAY_PICKER}          xpath=//*[@resource-id="screenProfile_calendarDatePicker-dateScroll"]
+${PROFILE_DOB_MONTH_PICKER}        xpath=//*[@resource-id="screenProfile_calendarDatePicker-monthScroll"]
+${PROFILE_DOB_YEAR_PICKER}         xpath=//*[@resource-id="screenProfile_calendarDatePicker-yearScroll"]
+${PROFILE_DOB_CONFIRM_BUTTON}      xpath=//*[@content-desc="Done"]
+${PROFILE_MOBILE_NUMBER_CONTAINER}  xpath=//*[@resource-id="screenProfile_textInputMobileNumber-container"]
+${PROFILE_MOBILE_NUMBER_INPUT}     xpath=//android.widget.EditText[@resource-id="screenProfile_textInputMobileNumber"]
+${PROFILE_NEXT_BUTTON}             xpath=//android.widget.Button[@resource-id="base-btn" and @content-desc="Next"]
+${PROFILE_NEXT_BUTTON_CONTAINER}   xpath=//*[@resource-id="screenProfile_buttonNext"]

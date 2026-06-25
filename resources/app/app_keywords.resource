@@ -7,6 +7,7 @@ ${ANDROID_PERMISSION_ALLOW_BUTTON}    xpath=//*[@resource-id="com.android.permis
 ${ANDROID_PERMISSION_DENY_BUTTON}     xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]
 ${ANDROID_PERMISSION_TIMEOUT}         5s
 ${DEBUG_MODE}                         False
+${APP_PACKAGE}                        com.bangkokbank.blue.dev
 
 
 *** Keywords ***
@@ -17,7 +18,7 @@ Open Mobile Application
     ...    automationName=UiAutomator2
     ...    deviceName=Android Emulator
     ...    app=${CURDIR}/../../apps/android/app.apk
-    ...    appPackage=com.bangkokbank.blue.dev
+    ...    appPackage=${APP_PACKAGE}
     ...    appActivity=com.bangkokbank.blue.MainActivity
     ...    noReset=false
 
@@ -26,6 +27,7 @@ Allow Android Permission If Visible
     ...    Wait Until Element Is Visible    ${ANDROID_PERMISSION_ALLOW_BUTTON}    ${ANDROID_PERMISSION_TIMEOUT}
     IF    ${is_visible}
         Click Element    ${ANDROID_PERMISSION_ALLOW_BUTTON}
+        Activate Application    ${APP_PACKAGE}
     END
 
 Debug Screenshot

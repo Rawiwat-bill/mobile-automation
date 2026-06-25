@@ -16,8 +16,11 @@ Landing Screen Should Be Visible
 
 Landing Action Should Be Visible
     ${is_skip_visible}=     Run Keyword And Return Status    Element Should Be Visible    ${LANDING_SKIP_BUTTON}
+    IF    ${is_skip_visible}
+        RETURN
+    END
     ${is_ready_visible}=    Run Keyword And Return Status    Element Should Be Visible    ${LANDING_READY_BUTTON}
-    Should Be True    ${is_skip_visible} or ${is_ready_visible}
+    Should Be True    ${is_ready_visible}
 
 Switch Landing Language To Thai
     Wait Until Element Is Visible    ${LANDING_LANGUAGE_THAI_BUTTON}    ${LANDING_TIMEOUT}
