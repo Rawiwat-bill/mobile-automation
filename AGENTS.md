@@ -23,6 +23,10 @@ Quality standard:
 - Identify whether the issue is locator, Robot code, Appium/device, security/data, review, or defect-report related.
 - Reuse existing keywords before creating new ones.
 - Reuse existing locators before creating new ones.
+- For flaky mobile UI issues, collect evidence before code changes: screenshot, Appium XML, and logs when useful.
+- When manual success differs from automation failure, compare manual success vs automation failure before changing code.
+- Run one experiment at a time and revert any failed or unproven experiment before the next one.
+- Create an investigation report under `reports/investigation/<screen_name>/` for every investigation.
 - Keep locators outside test files.
 - Keep page keywords separated by screen.
 - Prefer explicit waits and condition-based logic.
@@ -54,6 +58,7 @@ Quality standard:
   2. `accessibility_id` / `content-desc`.
   3. Stable text only when language-independent.
   4. Relative XPath only as a last resort.
+- Prefer full Appium XML and screenshot evidence over copied attributes alone when validating a locator.
 - Reject coordinates as locators.
 - Reject index XPath and absolute XPath.
 - Reject generic ids such as `text`, `base-btn`, or `base-btn-container` when a better screen-specific locator exists.
@@ -68,6 +73,7 @@ Quality standard:
 - Keep local data in gitignored local files.
 - Keep committed data as examples only and clearly non-real.
 - Mask sensitive values when logging or reporting.
+- Mask citizen IDs as `[MASKED_CITIZEN_ID]` and phone numbers as `[MASKED_PHONE]`.
 
 ## Git Baseline
 - Do not revert user changes unless explicitly requested.
@@ -86,6 +92,13 @@ Quality standard:
   `ls -la .agents`
   `cat AGENTS.md`
 
+## Evidence-First Mobile Workflow
+- Capture screenshot and Appium XML before changing Robot code for flaky mobile UI issues.
+- Capture after-state evidence for the failing interaction and compare it to the before-state.
+- When manual flow succeeds, compare manual success against automation failure before proposing a fix.
+- Use debug panel or logcat only when it helps explain the interaction gap.
+- Keep experiments isolated and reversible.
+
 ## Final Response Format
 Summary:
 Agents Used:
@@ -97,3 +110,32 @@ Security Review:
 Performance Review:
 Risk / Note:
 Next Recommended Action:
+
+## Project Milestones
+
+### Milestone 1 — Shared Onboarding Architecture
+- Landing, Consent, Profile extracted to common flow
+- NTB and ETB test suites separated
+- Common keyword: `Complete Common Onboarding`
+- Architecture documented in `docs/Architecture.md`
+- Backward compatibility preserved
+
+### Milestone 2 — Identity Validation (Profile Next)
+- Profile Next blocker diagnosed and resolved
+- Root cause: React Native gesture handling incompatible with Appium touch events
+- Fix: `adb shell input tap` via `Execute Adb Shell` with Appium `--relaxed-security`
+- Citizens ID input converted to adb keycodes for proper RN events
+- Documented in `knowledge/profile/next_button.md`
+- Identity validation suite at `tests/android/common/identity_validation.robot`
+
+### Milestone 3 — NTB OCR
+- TBD
+
+### Milestone 4 — Face Verification
+- TBD
+
+### Milestone 5 — PIN Setup
+- TBD
+
+### Milestone 6 — ETB Flow
+- TBD

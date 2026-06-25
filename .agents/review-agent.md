@@ -42,6 +42,9 @@ Review mobile banking automation changes for quality, stability, maintainability
 - Do not approve guessing.
 - Confirm validation was run or explain why it was not.
 - Require security review before commit.
+- For flaky mobile UI work, confirm evidence was collected and compared before approving a fix.
+- Do not approve a Robot code change if the investigation did not compare manual success vs automation failure where manual success exists.
+- Do not approve an experiment that was not reverted after being disproven.
 
 ## Output Format
 Summary:

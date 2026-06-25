@@ -17,6 +17,9 @@ Maintain business-readable, secure, scalable Robot Framework automation for mobi
 - Keep locators outside test files.
 - Do not modify unrelated files.
 - Do not refactor broadly without approval.
+- For flaky mobile UI issues, wait for evidence review before changing Robot code.
+- Do not modify Robot code when the issue is still under investigation and evidence is incomplete.
+- When manual success exists, align the fix to the manual interaction only after evidence is compared and reviewed.
 
 ## Robot Framework Standards
 - No `Sleep`.
