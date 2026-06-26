@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "appium-skill": {
+      "source": "lambdatest/agent-skills",
+      "sourceType": "github",
+      "skillPath": "appium-skill/SKILL.md",
+      "computedHash": "d18b9b024822eb67c4c33fb783c5cd5cf7553e442cab44cd307c3ff5f0a79bba"
+    },
+    "code-reviewer": {
+      "source": "google-gemini/gemini-cli",
+      "sourceType": "github",
+      "skillPath": ".gemini/skills/code-reviewer/SKILL.md",
+      "computedHash": "270f0dd1d4c15a798bad5253a309cdc2056fe5322f99ba06ca22ce50581adc02"
+    },
+    "orchestration": {
+      "source": "stablyai/orca",
+      "sourceType": "github",
+      "skillPath": "skills/orchestration/SKILL.md",
+      "computedHash": "194e6ae1ec1d9e9701958a61c34e41cf566109f4cbe9246d9e48c17063a6fecc"
+    },
+    "robot-expert": {
+      "source": "snaplogic/snaplogic-robotframework-examples",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/robot-expert/SKILL.md",
+      "computedHash": "080fab60df75d34dffa500f6c86f2e27bf3eac1dd20fbf287c1a587f652039f2"
+    }
+  }
+}
