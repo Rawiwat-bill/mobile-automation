@@ -1,43 +1,109 @@
-# Mobile Automation Architecture
+# Enterprise AI QA Platform Architecture
 
-## Project Layers
+## Platform Layers
 
 ```
-┌──────────────────────────────────────────────────┐
-│  Test Suites (tests/)                            │
-│  Business-flow test cases                        │
-├──────────────────────────────────────────────────┤
-│  Resource Keywords (resources/keywords/)          │
-│  Cross-screen flow keywords                      │
-├──────────────────────────────────────────────────┤
-│  Page Keywords (resources/pages/)                 │
-│  Screen-level page objects + interactions        │
-├──────────────────────────────────────────────────┤
-│  Locators (locators/)                             │
-│  Element definitions by platform and screen      │
-├──────────────────────────────────────────────────┤
-│  Libraries (libraries/)                          │
-│  Python helpers (config_loader, etc.)            │
-├──────────────────────────────────────────────────┤
-│  Test Data (testdata/)                           │
-│  YAML data files separated by customer type      │
-├──────────────────────────────────────────────────┤
-│  Knowledge (knowledge/)                          │
-│  Solved problems, architectural decisions        │
-├──────────────────────────────────────────────────┤
-│  Reports (reports/)                              │
-│  Robot output, investigation evidence            │
-└──────────────────────────────────────────────────┘
+Layer 0: Principles
+  docs/principles/engineering-principles.md
+  → Rules that govern all other layers
+
+Layer 1: Knowledge Layer (passive reference)
+  knowledge/*.md                   — Topic knowledge
+  knowledge/playbooks/*.md         — Step-by-step workflows
+  knowledge/patterns/*.md          — Reusable structural patterns
+  docs/decisions/ADR-*.md         — Architectural decisions
+  → Passive reference material, not an active agent
+
+Layer 2: External Skills (reference only)
+  .agents/skills/*/SKILL.md       — General best practices from ecosystem
+  → Secondary reference, overridden by internal knowledge
+
+Layer 3: Internal Agents
+  .agents/*.md                    — Agent instruction files
+  AGENTS.md                       — Master agent policy
+  → Active execution agents with defined capability boundaries
+
+Layer 4: QA Runtime / Orchestrator
+  .agents/qa-orchestrator.md      — Task classification, routing, supervision
+  → Decision system governing agent selection, execution, and gates
+
+Layer 5: Automation Framework
+  tests/                          — Test suites
+  resources/                      — Keywords, page objects, locators
+  libraries/                      — Python helpers
+  testdata/                       — YAML test data
+  → Executable mobile automation code
+
+Layer 6: Reporting / Evidence / CI-CD
+  reports/                        — Robot output, investigation evidence
+  → Results, artifacts, pipeline integration
+```
+
+### Layer Relationships
+
+```
+Principles (0)
+    ↓ governs
+Knowledge Layer (1) ─── overrides ───→ External Skills (2)
+    ↓ informs
+Internal Agents (3)
+    ↓ routed by
+QA Runtime / Orchestrator (4)
+    ↓ executes
+Automation Framework (5)
+    ↓ produces
+Reporting / Evidence / CI-CD (6)
+```
+
+## Project Structure
+
+```
+.
+├── .agents/                          # Agent instruction files (Layer 3)
+│   ├── qa-orchestrator.md            # Runtime orchestrator (Layer 4)
+│   ├── appium-agent.md
+│   ├── robotframework-agent.md
+│   ├── locator-agent.md
+│   ├── review-agent.md
+│   ├── security-review-agent.md
+│   ├── bug-agent.md
+│   ├── performance-agent.md
+│   ├── evidence-agent.md
+│   └── experiment-agent.md
+├── AGENTS.md                         # Master agent policy (Layers 3-4)
+├── SKILLS.md                         # Skill inventory (Layer 2)
+├── PROJECT_MATURITY.md               # Platform maturity assessment
+├── docs/                             # Architecture and decisions
+│   ├── Architecture.md               # This file
+│   ├── principles/                   # Layer 0
+│   │   └── engineering-principles.md
+│   └── decisions/                    # Layer 1
+│       └── ADR-*.md
+├── knowledge/                        # Layer 1
+│   ├── *.md                          # Topic knowledge
+│   ├── playbooks/                    # Step-by-step workflows
+│   └── patterns/                     # Reusable patterns
+├── apps/                             # Application binaries (APK)
+├── configs/                          # Device and environment configs
+├── libraries/                        # Python library files
+├── locators/                         # Element locators by platform
+├── resources/                        # Keywords, page objects (Layer 5)
+├── testdata/                         # YAML test data
+├── tests/                            # Test suites (Layer 5)
+└── reports/                          # Robot output, evidence (Layer 6)
 ```
 
 ## Agent System
 
-The project uses a multi-agent orchestration system defined in `.agents/`.
+The project uses a multi-agent orchestration system defined in `.agents/` (Layer 3).
 
-### QA Orchestrator
+### QA Orchestrator (Layer 4)
 - Entry point for all automation tasks
-- Delegates to specialized agents
-- Manages the approval flow
+- Classifies task type using signal-based classifier
+- Selects internal agent + external skill per routing table
+- Checks knowledge layer before loading skills
+- Manages the approval flow through review and security gates
+- Checks stop conditions at every gate
 - Validates preconditions before execution
 
 ### Evidence Agent
@@ -48,65 +114,60 @@ The project uses a multi-agent orchestration system defined in `.agents/`.
 
 ### Review Agent
 - Reviews code before commit
-- Checks locator quality
-- Validates security requirements
-- Verifies git hygiene
+- Checks locator quality, security, performance, git hygiene
+- Cross-checks robot-expert and appium-skill rules
+- Uses code-reviewer skill for review structure
 
 ### Experiment Agent
 - Runs one experiment at a time
 - Reverts failed or unproven experiments
-- Maintains isolated experiment branches
 - Reports results before next experiment
+- Maintains isolated experiment state
 
 ### RobotFramework Agent
-- Understands Robot Framework syntax
-- Knows AppiumLibrary keywords
+- Understands Robot Framework syntax and AppiumLibrary
 - Follows Page Object conventions
 - Validates with dryrun before execution
+- Consults robot-expert skill and robotframework playbook
 
-### Knowledge Agent
-- Records solved problems in `knowledge/`
-- Tracks architectural decisions
-- Provides context for recurring issues
+### Appium Agent
+- Diagnoses Appium, device, emulator, and gesture issues
+- Consults appium-skill and appium playbook
+- Never guesses appPackage or appActivity
 
-## Folder Structure
+### Locator Agent
+- Selects stable, maintainable locators
+- Follows Android locator priority (resource-id > accessibility_id > text > XPath)
+- Requires XML + screenshot evidence for new locators
+- Consults locator playbook and locator pattern
 
-```
-.
-├── .agents/                          # Agent instruction files
-├── AGENTS.md                         # Master agent instructions
-├── apps/                             # Application binaries (APK)
-├── configs/                          # Device and environment configs
-│   ├── devices/
-│   └── env/
-├── docs/                             # Architecture and design docs
-├── knowledge/                        # Solved problems documentation
-├── libraries/                        # Python library files
-├── locators/                         # Element locators by platform
-│   └── android/
-│       └── onboarding/
-├── resources/
-│   ├── app/                          # App session management
-│   │   └── app_keywords.resource
-│   ├── keywords/                     # Cross-screen flow keywords
-│   │   ├── onboarding_common.resource
-│   │   ├── ntb_keywords.resource
-│   │   └── etb_keywords.resource
-│   └── pages/                        # Screen-level page objects
-│       └── onboarding/
-├── testdata/                         # YAML test data
-│   └── onboarding/
-├── tests/                            # Test suites
-│   └── android/
-│       ├── common/                   # Shared flow tests
-│       ├── ntb/                      # NTB-specific tests
-│       ├── etb/                      # ETB-specific tests
-│       └── onboarding/               # Legacy (backward compat)
-└── reports/                          # Robot output + evidence
-    └── investigation/
-```
+### Security Review Agent
+- Final security gate before commit
+- Never loads external skills — internal rules only
+- Checks PII, credentials, git hygiene, artifact safety
 
-## Common Flow
+### Bug Agent
+- Converts failures into classified defect reports
+- Applies systematic-debugging Phase 1 before any fix
+- Separates automation defect, app defect, environment, data, backend, device issues
+
+### Performance Agent
+- Identifies and resolves performance bottlenecks
+- Uses benchmark framework for evidence-based optimization
+- Checks React Native compatibility before recommending changes
+
+## Knowledge Layer (Layer 1)
+
+The Knowledge Layer is passive reference material. It is not an active agent. It consists of:
+
+- **knowledge/*.md** — Topic knowledge (Appium, RF, locators, ADB, etc.)
+- **knowledge/playbooks/*.md** — Step-by-step workflows for common tasks
+- **knowledge/patterns/*.md** — Reusable structural patterns with anti-patterns
+- **docs/decisions/ADR-*.md** — Architectural Decision Records
+
+Agents consult the Knowledge Layer before loading external skills. Knowledge is updated only with confirmed evidence.
+
+## Common Onboarding Flow
 
 Flow shared by both NTB and ETB:
 
@@ -117,14 +178,18 @@ Landing
   ▼
 Consent
   │ Wait Until Consent Screen Is Displayed
-  │ Scroll Down Consent Terms
+  │ Scroll Down Consent Terms (adb swipe)
   │ Tap Consent Accept Button
   ▼
 Profile
   │ Wait Until Profile Screen Is Displayed
-  │ Input Citizen ID (adb keycodes)
+  │ Tap Citizen ID Container
+  │ Enter Digits By Keycodes (citizen ID)
+  │ Tap Blank Area to Blur
   │ Input Date Of Birth (picker)
-  │ Input Mobile Number (adb keycodes)
+  │ Tap Mobile Container
+  │ Enter Digits By Keycodes (mobile number)
+  │ Tap Blank Area to Blur
   │ Tap Profile Next (adb shell input tap)
   ▼
 [Identity Validation Complete]
@@ -208,16 +273,17 @@ ETB test data: `testdata/onboarding/etb.local.yaml` (local, gitignored)
 1. Task assigned to agent
 2. Agent inspects existing files
 3. Identifies issue type (locator / code / device / security / review / defect)
-4. Collects evidence if flaky
-5. Proposes change
-6. Review Agent validates:
+4. Checks knowledge layer for relevant playbooks/patterns
+5. Collects evidence if flaky
+6. Proposes change
+7. Review Agent validates:
    - Security review
    - Performance review
    - Locator quality
    - Code style
-7. Runs dryrun validation
-8. On approval: apply change
-9. On rejection: revert and document
+8. Runs dryrun validation
+9. On approval: apply change
+10. On rejection: revert and document
 ```
 
 ## Milestones
