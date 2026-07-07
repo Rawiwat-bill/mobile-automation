@@ -2,17 +2,17 @@
 Library    Process
 Library    OperatingSystem
 Library    ../../libraries/api_log_redactor.py
+Resource   ../app/app_constants.resource
 
 *** Variables ***
-${APICAPTURE_APP_PACKAGE}    com.bangkokbank.blue.dev
 ${APICAPTURE_OUTPUT_DIR}    ${OUTPUT_DIR}/api_logs
 
 *** Keywords ***
 Start API Capture
-    ${result}=    Run Process    adb    shell    pidof    -s    ${APICAPTURE_APP_PACKAGE}
+    ${result}=    Run Process    adb    shell    pidof    -s    ${APP_PACKAGE}
     ${pid}=    Evaluate    '${result.stdout}'.strip()
     IF    '${pid}' == ''
-        Log    [API CAPTURE] Could not detect PID for package ${APICAPTURE_APP_PACKAGE} — skipping capture.    WARN
+        Log    [API CAPTURE] Could not detect PID for package ${APP_PACKAGE} — skipping capture.    WARN
         Set Suite Variable    ${APICAPTURE_LOG_HANDLE}    ${NONE}
         RETURN
     END

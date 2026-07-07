@@ -6,12 +6,6 @@ Resource   benchmark_base.resource
 Resource   consent_scroll_strategies.resource
 
 
-*** Variables ***
-${BLUR_AFTER_CITIZEN_Y}    780
-${BLUR_AFTER_DOB_Y}        1095
-${BLUR_AFTER_MOBILE_Y}     1600
-
-
 *** Keywords ***
 # ─── Citizen ID Strategy Executors ─────────────────────────────────────────
 
@@ -81,8 +75,7 @@ Run DOB picker_calculated
     ${day}=    Set Variable    ${parts[2]}
     ${month_token}=    Set Variable    ${parts[1]}
     ${year}=    Set Variable    ${parts[0]}
-    ${month_map}=    Evaluate    {'01': 'January', '02': 'February', '03': 'March', '04': 'April', '05': 'May', '06': 'June', '07': 'July', '08': 'August', '09': 'September', '10': 'October', '11': 'November', '12': 'December'}
-    ${month}=    Get From Dictionary    ${month_map}    ${month_token}
+    ${month}=    Get From Dictionary    ${MONTH_MAP}    ${month_token}
     Select Benchmark Picker Value    ${BENCHMARK_DOB_YEAR_PICKER}    ${year}    number
     Select Benchmark Picker Value    ${BENCHMARK_DOB_MONTH_PICKER}    ${month}    month
     Select Benchmark Picker Value    ${BENCHMARK_DOB_DAY_PICKER}    ${day}    number
@@ -237,7 +230,6 @@ Enter Digits By Keycodes
 
 Select Benchmark Picker Value
     [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}
-    ${month_indexes}=    Evaluate    {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
     Wait Until Element Is Visible    ${picker_locator}    3s
     ${current_desc}=    Get Element Attribute    ${picker_locator}    content-desc
     ${current_value}=    Fetch From Right    ${current_desc}    ,
@@ -246,8 +238,8 @@ Select Benchmark Picker Value
         RETURN
     END
     IF    '${value_kind}' == 'month'
-        ${current_index}=    Get From Dictionary    ${month_indexes}    ${current_value}
-        ${target_index}=    Get From Dictionary    ${month_indexes}    ${target_value}
+        ${current_index}=    Get From Dictionary    ${MONTH_INDEXES}    ${current_value}
+        ${target_index}=    Get From Dictionary    ${MONTH_INDEXES}    ${target_value}
     ELSE
         ${current_index}=    Convert To Integer    ${current_value}
         ${target_index}=    Convert To Integer    ${target_value}
@@ -286,8 +278,7 @@ Baseline Fill DOB
     ${day}=    Set Variable    ${parts[2]}
     ${month_token}=    Set Variable    ${parts[1]}
     ${year}=    Set Variable    ${parts[0]}
-    ${month_map}=    Evaluate    {'01': 'January', '02': 'February', '03': 'March', '04': 'April', '05': 'May', '06': 'June', '07': 'July', '08': 'August', '09': 'September', '10': 'October', '11': 'November', '12': 'December'}
-    ${month}=    Get From Dictionary    ${month_map}    ${month_token}
+    ${month}=    Get From Dictionary    ${MONTH_MAP}    ${month_token}
     Select Benchmark Picker Value    ${BENCHMARK_DOB_YEAR_PICKER}    ${year}    number
     Select Benchmark Picker Value    ${BENCHMARK_DOB_MONTH_PICKER}    ${month}    month
     Select Benchmark Picker Value    ${BENCHMARK_DOB_DAY_PICKER}    ${day}    number

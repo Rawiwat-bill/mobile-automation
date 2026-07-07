@@ -1,5 +1,6 @@
 *** Settings ***
 Library    AppiumLibrary
+Resource   app_constants.resource
 
 
 *** Variables ***
@@ -7,19 +8,18 @@ ${ANDROID_PERMISSION_ALLOW_BUTTON}    xpath=//*[@resource-id="com.android.permis
 ${ANDROID_PERMISSION_DENY_BUTTON}     xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]
 ${ANDROID_PERMISSION_TIMEOUT}         5s
 ${DEBUG_MODE}                         False
-${APP_PACKAGE}                        com.bangkokbank.blue.dev
 
 
 *** Keywords ***
 Open Mobile Application
     Open Application
-    ...    http://127.0.0.1:4723
+    ...    ${APPIUM_URL}
     ...    platformName=Android
     ...    automationName=UiAutomator2
-    ...    deviceName=Android Emulator
-    ...    app=${CURDIR}/../../apps/android/app.apk
+    ...    deviceName=${DEVICE_NAME}
+    ...    app=${APK_PATH}
     ...    appPackage=${APP_PACKAGE}
-    ...    appActivity=com.bangkokbank.blue.MainActivity
+    ...    appActivity=${APP_ACTIVITY}
     ...    noReset=false
 
 Allow Android Permission If Visible

@@ -5,14 +5,10 @@ Library    Collections
 Library    String
 Library    OperatingSystem
 Library    ../benchmark/BenchmarkMetrics.py
+Resource   ../app/app_constants.resource
 
 
 *** Variables ***
-${BENCHMARK_APP_PACKAGE}       com.bangkokbank.blue.dev
-${BENCHMARK_APP_ACTIVITY}      com.bangkokbank.blue.MainActivity
-${BENCHMARK_APPIUM_URL}        http://127.0.0.1:4723
-${BENCHMARK_DEVICE_NAME}       Android Emulator
-${BENCHMARK_APP_PATH}          ${CURDIR}/../../apps/android/app.apk
 ${BENCHMARK_PERM_TIMEOUT}      5s
 ${BENCHMARK_ELEMENT_TIMEOUT}   30s
 
@@ -40,13 +36,13 @@ ${BENCHMARK_NEXT_CONTAINER}     xpath=//*[@resource-id="screenProfile_buttonNext
 Open Benchmark Application
     Start Phase    open_app
     Open Application
-    ...    ${BENCHMARK_APPIUM_URL}
+    ...    ${APPIUM_URL}
     ...    platformName=Android
     ...    automationName=UiAutomator2
-    ...    deviceName=${BENCHMARK_DEVICE_NAME}
-    ...    app=${BENCHMARK_APP_PATH}
-    ...    appPackage=${BENCHMARK_APP_PACKAGE}
-    ...    appActivity=${BENCHMARK_APP_ACTIVITY}
+    ...    deviceName=${DEVICE_NAME}
+    ...    app=${APK_PATH}
+    ...    appPackage=${APP_PACKAGE}
+    ...    appActivity=${APP_ACTIVITY}
     ...    noReset=false
     Record Appium Action
     End Phase
@@ -63,7 +59,7 @@ Allow Android Permission If Visible
     IF    ${is_visible}
         Click Element    ${BENCHMARK_PERM_ALLOW}
         Record Appium Action
-        Activate Application    ${BENCHMARK_APP_PACKAGE}
+        Activate Application    ${APP_PACKAGE}
         Record Appium Action
     END
 

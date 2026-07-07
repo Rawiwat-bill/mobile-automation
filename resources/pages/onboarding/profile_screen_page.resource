@@ -5,6 +5,7 @@ Library     String
 Library     OperatingSystem
 Resource    ../../../locators/android/onboarding/profile_screen_locators.resource
 Resource    ../../keywords/dob_stability_keywords.resource
+Resource    ../../app/app_constants.resource
 
 
 *** Variables ***
@@ -12,9 +13,6 @@ ${PROFILE_TIMEOUT}    10s
 ${DOB_PICKER_TIMEOUT}    3s
 ${PROFILE_INVESTIGATION_DIR}    reports/investigation/profile
 ${PROFILE_DEBUG_PANEL_BUTTON}    xpath=//*[@content-desc="Open debug panel"]
-${PROFILE_BLUR_AFTER_CITIZEN_Y}    780
-${PROFILE_BLUR_AFTER_DOB_Y}    1095
-${PROFILE_BLUR_AFTER_MOBILE_Y}    1600
 
 
 *** Keywords ***
@@ -67,7 +65,7 @@ Input Citizen ID
     [Arguments]    ${citizen_id}
     Tap Profile Element Center    ${PROFILE_CITIZEN_ID_CONTAINER}
     ${displayed}=    Input Text Field    ${PROFILE_CITIZEN_ID_INPUT}    ${citizen_id}
-    Tap Profile Blank Area    ${PROFILE_BLUR_AFTER_CITIZEN_Y}
+    Tap Profile Blank Area    ${BLUR_AFTER_CITIZEN_Y}
     Wait Until Profile Fields Are Blurred
     Verify Field Value    Citizen ID    ${displayed}    ${citizen_id}
 
@@ -118,11 +116,10 @@ Input Date Of Birth
     ${day}=    Set Variable    ${parts[0]}
     ${month_token}=    Set Variable    ${parts[1]}
     ${year}=    Set Variable    ${parts[2]}
-    ${month_map}=    Evaluate    {'01': 'January', '02': 'February', '03': 'March', '04': 'April', '05': 'May', '06': 'June', '07': 'July', '08': 'August', '09': 'September', '10': 'October', '11': 'November', '12': 'December'}
     ${month}=    Set Variable    ${month_token}
-    ${has_numeric_month}=    Run Keyword And Return Status    Dictionary Should Contain Key    ${month_map}    ${month_token}
+    ${has_numeric_month}=    Run Keyword And Return Status    Dictionary Should Contain Key    ${MONTH_MAP}    ${month_token}
     IF    ${has_numeric_month}
-        ${month}=    Get From Dictionary    ${month_map}    ${month_token}
+        ${month}=    Get From Dictionary    ${MONTH_MAP}    ${month_token}
     END
     Tap Profile Element Center    ${PROFILE_DOB_CONTAINER}
     Record DOB Picker Visible
@@ -154,7 +151,7 @@ Input Date Of Birth
     END
     Record DOB Day End
     Click Element    ${PROFILE_DOB_CONFIRM_BUTTON}
-    Tap Profile Blank Area    ${PROFILE_BLUR_AFTER_DOB_Y}
+    Tap Profile Blank Area    ${BLUR_AFTER_DOB_Y}
     Wait Until Profile Fields Are Blurred
     Record DOB Success
     Verify DOB Field Value    ${day}    ${year}
@@ -163,7 +160,7 @@ Input Mobile Number
     [Arguments]    ${mobile_number}
     Tap Profile Element Center    ${PROFILE_MOBILE_NUMBER_CONTAINER}
     ${displayed}=    Input Text Field    ${PROFILE_MOBILE_NUMBER_INPUT}    ${mobile_number}
-    Tap Profile Blank Area    ${PROFILE_BLUR_AFTER_MOBILE_Y}
+    Tap Profile Blank Area    ${BLUR_AFTER_MOBILE_Y}
     Run Keyword And Ignore Error    Hide Keyboard
     Wait Until Profile Fields Are Blurred
     Verify Field Value    Mobile    ${displayed}    ${mobile_number}
@@ -204,7 +201,6 @@ Tap Profile Next
 
 Select DOB Picker Value
     [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}
-    ${month_indexes}=    Evaluate    {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
     Wait Until Element Is Visible    ${picker_locator}    ${DOB_PICKER_TIMEOUT}
     FOR    ${index}    IN RANGE    25
         ${current_value}=    Read DOB Picker Visible Value    ${picker_locator}
@@ -213,8 +209,8 @@ Select DOB Picker Value
         END
 
         IF    '${value_kind}' == 'month'
-            ${current_index}=    Get From Dictionary    ${month_indexes}    ${current_value}
-            ${target_index}=    Get From Dictionary    ${month_indexes}    ${target_value}
+            ${current_index}=    Get From Dictionary    ${MONTH_INDEXES}    ${current_value}
+            ${target_index}=    Get From Dictionary    ${MONTH_INDEXES}    ${target_value}
         ELSE
             ${current_index}=    Convert To Integer    ${current_value}
             ${target_index}=    Convert To Integer    ${target_value}
