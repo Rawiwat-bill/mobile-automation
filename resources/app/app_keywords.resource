@@ -3,7 +3,7 @@ Library    AppiumLibrary
 
 
 *** Variables ***
-${ANDROID_PERMISSION_ALLOW_BUTTON}    xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button"]
+${ANDROID_PERMISSION_ALLOW_BUTTON}    xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button" or @resource-id="com.android.permissioncontroller:id/permission_allow_foreground_only_button"]
 ${ANDROID_PERMISSION_DENY_BUTTON}     xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]
 ${ANDROID_PERMISSION_TIMEOUT}         5s
 ${DEBUG_MODE}                         False

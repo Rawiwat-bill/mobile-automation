@@ -31,7 +31,7 @@
    - Try different interaction strategies (click, tap, adb shell).
 6. For React Native issues:
    - If `Click Element` fails, try `adb shell input tap` with bounds.
-   - If `Input Text` fails, try `Press Keycode` per digit.
+    - If `Input Text` fails on a TextInput, first check if the field is a picker (DOB) — pickers require adb swipe + picker Done, not Input Text.
    - If swipe fails, try `adb shell input swipe`.
 7. Distinguish automation issue from app, device, environment, backend, data issues.
 8. Document findings and any capability changes required.

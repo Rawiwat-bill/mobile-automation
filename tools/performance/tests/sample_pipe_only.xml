@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<robot generator="Robot 7.3.2" generated="2026-06-26T12:00:00">
+<suite name="Sample Pipe Only">
+<test name="Sample Test">
+<kw name="Log">
+<msg time="2026-06-26T12:00:00" level="INFO">BENCHMARK|Citizen ID Strategy Comparison|citizen_id|input_text|PASS|18.234|2.100|0.000|28|1|0|0</msg>
+<status status="PASS"/>
+</kw>
+<kw name="Log">
+<msg time="2026-06-26T12:00:01" level="INFO">BENCHMARK|Citizen ID Strategy Comparison|citizen_id|press_keycodes|PASS|15.100|1.500|0.000|35|13|0|0</msg>
+<status status="PASS"/>
+</kw>
+<status status="PASS"/>
+</test>
+</suite>
+</robot>

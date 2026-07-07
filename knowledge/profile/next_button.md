@@ -18,7 +18,7 @@ Profile fields populate successfully, but the onboarding flow does not hand off 
 ## Root Cause
 The app uses React Native gesture handling that does not respond correctly to Appium-generated touch events (`Click Element`, `Tap`). The React Native `TouchableOpacity`/`onPress` handler requires OS-level touch input, which `adb shell input tap` provides.
 
-The form data entry method also matters: using `Press Keycode` (adb keycodes) for Citizen ID and Mobile Number triggers proper React Native `onChange` events, unlike `Input Text` which uses `element.sendKeys()`.
+Form data entry is a separate concern from gesture handling. Appium `Input Text` (which uses `element.sendKeys()`) triggers proper RN `onChangeText` events for TextInput fields — verified byte-identical to manual typing in Sprint 2.10.3. Keycode-based entry has been removed from production paths as of Sprint 2.11. The gesture problem (Next button not responding to Appium tap) is independent of how text fields are populated.
 
 ## Working Fix
 
@@ -39,9 +39,10 @@ Tap Profile Next Using Adb
 
 Fallback to Appium `Tap` is included in `Tap Profile Next Button` if adb tap does not navigate.
 
-### Data entry changes
-- `Input Citizen ID` uses `Enter Digits By Keycodes` (adb `Press Keycode` per digit) instead of Appium `Input Text`
-- `Enter Mobile Number By Keycodes` refactored to share `Enter Digits By Keycodes`
+### Data entry changes (Sprint 2.11 — migrated to Input Text)
+- `Input Citizen ID` uses Appium `Input Text Field` (single `sendKeys()` call) — replaces `Enter Digits By Keycodes`
+- `Input Mobile Number` uses Appium `Input Text Field` — replaces `Enter Mobile Number By Keycodes`
+- Keycodes removed from production paths. `Enter Digits By Keycodes` retained only in `resources/benchmark/benchmark_strategies.resource` for benchmark baselines.
 
 ## Validation Result
 ```

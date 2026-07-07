@@ -1,0 +1,3 @@
+robotframework>=7.0
+robotframework-appiumlibrary>=3.0
+pyyaml>=6.0

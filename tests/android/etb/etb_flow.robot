@@ -9,7 +9,7 @@ Suite Setup      Open Mobile Application
 Suite Teardown   Close Application
 
 *** Variables ***
-${ETB_TESTDATA}    testdata/onboarding/etb.local.yaml
+${ETB_TESTDATA}    testdata/onboarding/etb.example.yaml
 
 *** Test Cases ***
 ETB Onboarding Flow

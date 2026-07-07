@@ -1,17 +1,13 @@
 *** Settings ***
 Library     AppiumLibrary
-Library     Process
+Resource    ../../keywords/scroll_keywords.resource
 Resource    ../../../locators/android/onboarding/consent_screen_locators.resource
 
 
 *** Variables ***
 ${CONSENT_TIMEOUT}    10s
-${CONSENT_SWIPE_COUNT}    0
-${CONSENT_END_CHECK_COUNT}    0
 ${CONSENT_END_TEXT}    I have read and understood
-${CONSENT_MAX_SWIPES}    12
-${CONSENT_FIRST_END_CHECK_AT}    4
-${CONSENT_END_CHECK_INTERVAL}    2
+${CONSENT_MAX_SWIPES}    55
 
 
 *** Keywords ***
@@ -20,27 +16,9 @@ Wait Until Consent Screen Is Displayed
     Wait Until Element Is Visible    ${CONSENT_WEBVIEW}       ${CONSENT_TIMEOUT}
 
 Scroll Down Consent Terms
-    Set Test Variable    ${CONSENT_SWIPE_COUNT}    0
-    Set Test Variable    ${CONSENT_END_CHECK_COUNT}    0
-    FOR    ${index}    IN RANGE    ${CONSENT_MAX_SWIPES}
-        Run Process    adb    shell    input    swipe    540    1950    540    350    50
-        ${next_count}=    Evaluate    ${CONSENT_SWIPE_COUNT} + 1
-        Set Test Variable    ${CONSENT_SWIPE_COUNT}    ${next_count}
-        ${past_first_check}=    Evaluate    ${CONSENT_SWIPE_COUNT} >= ${CONSENT_FIRST_END_CHECK_AT}
-        ${on_check_interval}=    Evaluate    (${CONSENT_SWIPE_COUNT} - ${CONSENT_FIRST_END_CHECK_AT}) % ${CONSENT_END_CHECK_INTERVAL} == 0
-        IF    ${past_first_check} and ${on_check_interval}
-            ${next_check_count}=    Evaluate    ${CONSENT_END_CHECK_COUNT} + 1
-            Set Test Variable    ${CONSENT_END_CHECK_COUNT}    ${next_check_count}
-            ${found_end}=    Run Keyword And Return Status
-            ...    Page Should Contain Text
-            ...    ${CONSENT_END_TEXT}
-            IF    ${found_end}
-                BREAK
-            END
-        END
-    END
-    Log    [PERF] SwipeCount=${CONSENT_SWIPE_COUNT}
-    Log    [PERF] EndTextChecks=${CONSENT_END_CHECK_COUNT}
+    [Arguments]    ${max_swipes}=${CONSENT_MAX_SWIPES}
+    ${swipe_count}=    Scroll Down Consent Terms With Big Fling    ${max_swipes}
+    Log    [PERF] SwipeCount=${swipe_count}
 
 Tap Consent Accept Button
     ${consent_start}=    Evaluate    time.time()    modules=time

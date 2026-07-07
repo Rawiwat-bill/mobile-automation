@@ -4,7 +4,7 @@ Resource    ../../../locators/android/onboarding/landing_screen_locators.resourc
 
 
 *** Variables ***
-${LANDING_TIMEOUT}    30s
+${LANDING_TIMEOUT}    60s
 
 
 *** Keywords ***

@@ -4,12 +4,12 @@ Library     Collections
 Library     String
 Library     OperatingSystem
 Resource    ../../../locators/android/onboarding/profile_screen_locators.resource
+Resource    ../../keywords/dob_stability_keywords.resource
 
 
 *** Variables ***
 ${PROFILE_TIMEOUT}    10s
 ${DOB_PICKER_TIMEOUT}    3s
-${DOB_TRY_DIRECT_INPUT}    ${FALSE}
 ${PROFILE_INVESTIGATION_DIR}    reports/investigation/profile
 ${PROFILE_DEBUG_PANEL_BUTTON}    xpath=//*[@content-desc="Open debug panel"]
 ${PROFILE_BLUR_AFTER_CITIZEN_Y}    780
@@ -66,11 +66,45 @@ Profile Fields Should Be Blurred
 Input Citizen ID
     [Arguments]    ${citizen_id}
     Tap Profile Element Center    ${PROFILE_CITIZEN_ID_CONTAINER}
-    ${previous_log_level}=    Set Log Level    NONE
-    Enter Digits By Keycodes    ${citizen_id}
-    Set Log Level    ${previous_log_level}
+    ${displayed}=    Input Text Field    ${PROFILE_CITIZEN_ID_INPUT}    ${citizen_id}
     Tap Profile Blank Area    ${PROFILE_BLUR_AFTER_CITIZEN_Y}
     Wait Until Profile Fields Are Blurred
+    Verify Field Value    Citizen ID    ${displayed}    ${citizen_id}
+
+# ─── TextInput Engine ────────────────────────────────────────────────────
+
+Normalize Digits
+    [Arguments]    ${text}
+    ${normalized}=    Replace String Using Regexp    ${text}    [^0-9]    ${EMPTY}
+    RETURN    ${normalized}
+
+Input Text Field
+    [Arguments]    ${input_locator}    ${value}
+    ${previous_log_level}=    Set Log Level    NONE
+    Clear Text    ${input_locator}
+    Input Text    ${input_locator}    ${value}
+    ${displayed}=    Get Text    ${input_locator}
+    Set Log Level    ${previous_log_level}
+    RETURN    ${displayed}
+
+Verify Field Value
+    [Arguments]    ${field_label}    ${actual_displayed}    ${expected_raw}
+    ${normalized_actual}=    Normalize Digits    ${actual_displayed}
+    ${normalized_expected}=    Normalize Digits    ${expected_raw}
+    Should Be Equal As Strings    ${normalized_actual}    ${normalized_expected}
+    ...    ${field_label} value mismatch.
+    Log    [PROFILE] ${field_label} verified with masked value.
+
+# ─── Verification Engine ─────────────────────────────────────────────────
+
+Verify DOB Field Value
+    [Arguments]    ${day}    ${year}
+    ${field_text}=    Get Text    ${PROFILE_DOB_INPUT}
+    ${field_digits}=    Normalize Digits    ${field_text}
+    ${expected_digits}=    Set Variable    ${day}${year}
+    Should Contain    ${field_digits}    ${expected_digits}
+    ...    DOB field value mismatch.
+    Log    [PROFILE] DOB field verified with masked value.
 
 Tap Date Of Birth Field
     Wait Until Element Is Visible    ${PROFILE_DOB_INPUT}    ${PROFILE_TIMEOUT}
@@ -79,11 +113,7 @@ Tap Date Of Birth Field
 
 Input Date Of Birth
     [Arguments]    ${date_of_birth}
-    ${dob_start}=    Evaluate    __import__('time').time()
-    Log    [PROFILE] DOB start time: ${dob_start}
-    Tap Profile Element Center    ${PROFILE_DOB_CONTAINER}
-    Log    [PROFILE] DOB field clicked
-    Log    [PROFILE] Date picker opened
+    Start DOB Interaction
     ${parts}=    Split String    ${date_of_birth}    -
     ${day}=    Set Variable    ${parts[0]}
     ${month_token}=    Set Variable    ${parts[1]}
@@ -94,71 +124,49 @@ Input Date Of Birth
     IF    ${has_numeric_month}
         ${month}=    Get From Dictionary    ${month_map}    ${month_token}
     END
-    IF    ${DOB_TRY_DIRECT_INPUT}
-        ${direct_strategy}=    Try Direct DOB Input    ${date_of_birth}
-        IF    '${direct_strategy}' != ''
-            ${dob_end}=    Evaluate    __import__('time').time()
-            ${elapsed}=    Evaluate    round(${dob_end} - ${dob_start}, 2)
-            Log    [PROFILE] DOB end time: ${dob_end}
-            Log    [PROFILE] DOB strategy used: ${direct_strategy}
-            Log    [PROFILE] DOB elapsed seconds: ${elapsed}
-            RETURN
-        END
+    Tap Profile Element Center    ${PROFILE_DOB_CONTAINER}
+    Record DOB Picker Visible
+    Record DOB Year Start
+    TRY
+        Select DOB Picker Value    ${PROFILE_DOB_YEAR_PICKER}    ${year}    number
+    EXCEPT    AS    ${error}
+        Record DOB Failure    year    ${year}    ${error}
+        Capture DOB Failure Evidence    year    ${year}
+        Fail    ${error}
     END
-    ${year_start}=    Evaluate    __import__('time').time()
-    Select DOB Picker Value    ${PROFILE_DOB_YEAR_PICKER}    ${year}    number
-    ${year_end}=    Evaluate    __import__('time').time()
-    ${year_elapsed}=    Evaluate    round(${year_end} - ${year_start}, 2)
-    Log    [PROFILE] Year selected
-    Log    [PROFILE] Year picker elapsed seconds: ${year_elapsed}
-    ${month_start}=    Evaluate    __import__('time').time()
-    Select DOB Picker Value    ${PROFILE_DOB_MONTH_PICKER}    ${month}    month
-    ${month_end}=    Evaluate    __import__('time').time()
-    ${month_elapsed}=    Evaluate    round(${month_end} - ${month_start}, 2)
-    Log    [PROFILE] Month selected
-    Log    [PROFILE] Month picker elapsed seconds: ${month_elapsed}
-    ${day_start}=    Evaluate    __import__('time').time()
-    Select DOB Picker Value    ${PROFILE_DOB_DAY_PICKER}    ${day}    number
-    ${day_end}=    Evaluate    __import__('time').time()
-    ${day_elapsed}=    Evaluate    round(${day_end} - ${day_start}, 2)
-    Log    [PROFILE] Day selected
-    Log    [PROFILE] Day picker elapsed seconds: ${day_elapsed}
+    Record DOB Year End
+    Record DOB Month Start
+    TRY
+        Select DOB Picker Value    ${PROFILE_DOB_MONTH_PICKER}    ${month}    month
+    EXCEPT    AS    ${error}
+        Record DOB Failure    month    ${month}    ${error}
+        Capture DOB Failure Evidence    month    ${month}
+        Fail    ${error}
+    END
+    Record DOB Month End
+    Record DOB Day Start
+    TRY
+        Select DOB Picker Value    ${PROFILE_DOB_DAY_PICKER}    ${day}    number
+    EXCEPT    AS    ${error}
+        Record DOB Failure    day    ${day}    ${error}
+        Capture DOB Failure Evidence    day    ${day}
+        Fail    ${error}
+    END
+    Record DOB Day End
     Click Element    ${PROFILE_DOB_CONFIRM_BUTTON}
-    Log    [PROFILE] Date confirmed
     Tap Profile Blank Area    ${PROFILE_BLUR_AFTER_DOB_Y}
     Wait Until Profile Fields Are Blurred
-    ${dob_end}=    Evaluate    __import__('time').time()
-    ${elapsed}=    Evaluate    round(${dob_end} - ${dob_start}, 2)
-    Log    [PROFILE] DOB end time: ${dob_end}
-    Log    [PROFILE] DOB strategy used: picker_fallback
-    Log    [PROFILE] DOB elapsed seconds: ${elapsed}
+    Record DOB Success
+    Verify DOB Field Value    ${day}    ${year}
 
 Input Mobile Number
     [Arguments]    ${mobile_number}
     Tap Profile Element Center    ${PROFILE_MOBILE_NUMBER_CONTAINER}
-    Log    [PROFILE] Mobile focused
-    ${native_status}=    Run Keyword And Return Status    Enter Mobile Number By Keycodes    ${mobile_number}
-    Press Keycode    66
+    ${displayed}=    Input Text Field    ${PROFILE_MOBILE_NUMBER_INPUT}    ${mobile_number}
     Tap Profile Blank Area    ${PROFILE_BLUR_AFTER_MOBILE_Y}
     Run Keyword And Ignore Error    Hide Keyboard
     Wait Until Profile Fields Are Blurred
-    ${native_populated}=    Run Keyword And Return Status    Wait Until Keyword Succeeds    5x    300ms    Mobile Number Field Should Be Populated    ${mobile_number}
-    IF    ${native_status} and ${native_populated}
-        Log    [PROFILE] Mobile entered via keyboard
-        Log    [PROFILE] Keyboard dismissed
-    ELSE
-        ${previous_log_level}=    Set Log Level    NONE
-        Clear Text    ${PROFILE_MOBILE_NUMBER_INPUT}
-        Input Text Into Current Element    ${mobile_number}
-        Set Log Level    ${previous_log_level}
-        Press Keycode    66
-        Tap Profile Blank Area    ${PROFILE_BLUR_AFTER_MOBILE_Y}
-        Run Keyword And Ignore Error    Hide Keyboard
-        Wait Until Profile Fields Are Blurred
-        Wait Until Keyword Succeeds    5x    300ms    Mobile Number Field Should Be Populated    ${mobile_number}
-        Log    [PROFILE] Mobile entered via fallback text input
-        Log    [PROFILE] Keyboard dismissed
-    END
+    Verify Field Value    Mobile    ${displayed}    ${mobile_number}
 
 Tap Profile Next Using Adb
     ${element_rect}=    Get Element Rect    ${PROFILE_NEXT_BUTTON_CONTAINER}
@@ -194,36 +202,12 @@ Tap Profile Next Button
 Tap Profile Next
     Tap Profile Next Button
 
-Enter Digits By Keycodes
-    [Arguments]    ${digits_text}
-    ${digits}=    Evaluate    ''.join(ch for ch in """${digits_text}""" if ch.isdigit())
-    ${keycodes}=    Evaluate    {'0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16}
-    ${digit_count}=    Get Length    ${digits}
-    FOR    ${index}    IN RANGE    ${digit_count}
-        ${end_index}=    Evaluate    ${index} + 1
-        ${digit}=    Get Substring    ${digits}    ${index}    ${end_index}
-        ${keycode}=    Get From Dictionary    ${keycodes}    ${digit}
-        Press Keycode    ${keycode}
-    END
-
-Enter Mobile Number By Keycodes
-    [Arguments]    ${mobile_number}
-    Enter Digits By Keycodes    ${mobile_number}
-    Press Keycode    66
-    Mobile Number Field Should Be Populated    ${mobile_number}
-
 Select DOB Picker Value
     [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}
     ${month_indexes}=    Evaluate    {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
-    ${calculated_selected}=    Select DOB Picker Value Calculated    ${picker_locator}    ${target_value}    ${value_kind}    ${month_indexes}
-    IF    ${calculated_selected}
-        RETURN
-    END
     Wait Until Element Is Visible    ${picker_locator}    ${DOB_PICKER_TIMEOUT}
     FOR    ${index}    IN RANGE    25
-        ${current_desc}=    Get Element Attribute    ${picker_locator}    content-desc
-        ${current_value}=    Fetch From Right    ${current_desc}    ,
-        ${current_value}=    Strip String    ${current_value}
+        ${current_value}=    Read DOB Picker Visible Value    ${picker_locator}
         IF    '${current_value}' == '${target_value}'
             RETURN
         END
@@ -237,128 +221,55 @@ Select DOB Picker Value
         END
 
         ${direction}=    Set Variable If    ${current_index} < ${target_index}    up    down
+        Record DOB Picker Attempt    ${value_kind}    ${target_value}    ${current_value}    ${direction}
         ${picker_rect}=    Get Element Rect    ${picker_locator}
         ${center_x}=    Evaluate    int(${picker_rect['x']} + (${picker_rect['width']} / 2))
-        ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.30))
-        ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.70))
-        IF    '${direction}' == 'up'
-            Swipe    start_x=${center_x}    start_y=${bottom_y}    end_x=${center_x}    end_y=${top_y}    duration=100ms
+        ${diff}=    Evaluate    abs(int(${current_index}) - int(${target_index}))
+        ${duration}=    Set Variable    500
+        IF    ${diff} <= 2
+            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.35))
+            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.55))
+            ${duration}=    Set Variable    50
         ELSE
-            Swipe    start_x=${center_x}    start_y=${top_y}    end_x=${center_x}    end_y=${bottom_y}    duration=100ms
+            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.30))
+            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.70))
+            ${duration}=    Set Variable    50
         END
+        IF    '${direction}' == 'up'
+            Execute Adb Shell    input    swipe    ${center_x}    ${bottom_y}    ${center_x}    ${top_y}    ${duration}
+        ELSE
+            Execute Adb Shell    input    swipe    ${center_x}    ${top_y}    ${center_x}    ${bottom_y}    ${duration}
+        END
+        Sleep    0.1s
     END
+    Record DOB Failure    ${value_kind}    ${target_value}    exhausted 25 attempts
+    Capture DOB Failure Evidence    ${value_kind}    ${target_value}
     Fail    Could not select DOB picker value '${target_value}' using locator '${picker_locator}'.
 
-Select DOB Picker Value Calculated
-    [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}    ${month_indexes}
+Read DOB Picker Visible Value
+    [Arguments]    ${picker_locator}
     Wait Until Element Is Visible    ${picker_locator}    ${DOB_PICKER_TIMEOUT}
-    ${current_desc}=    Get Element Attribute    ${picker_locator}    content-desc
-    ${current_value}=    Fetch From Right    ${current_desc}    ,
-    ${current_value}=    Strip String    ${current_value}
-    IF    '${current_value}' == '${target_value}'
-        RETURN    ${TRUE}
-    END
-
-    IF    '${value_kind}' == 'month'
-        ${current_index}=    Get From Dictionary    ${month_indexes}    ${current_value}
-        ${target_index}=    Get From Dictionary    ${month_indexes}    ${target_value}
-    ELSE
-        ${current_index}=    Convert To Integer    ${current_value}
-        ${target_index}=    Convert To Integer    ${target_value}
-    END
-
-    ${step_count}=    Evaluate    abs(int(${target_index}) - int(${current_index}))
-    IF    ${step_count} == 0
-        RETURN    ${TRUE}
-    END
-
-    ${direction}=    Set Variable If    ${current_index} < ${target_index}    up    down
-    ${picker_rect}=    Get Element Rect    ${picker_locator}
-    ${center_x}=    Evaluate    int(${picker_rect['x']} + (${picker_rect['width']} / 2))
-    ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.30))
-    ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.70))
-    FOR    ${index}    IN RANGE    ${step_count}
-        IF    '${direction}' == 'up'
-            Swipe    start_x=${center_x}    start_y=${bottom_y}    end_x=${center_x}    end_y=${top_y}    duration=50ms
-        ELSE
-            Swipe    start_x=${center_x}    start_y=${top_y}    end_x=${center_x}    end_y=${bottom_y}    duration=50ms
+    ${desc}=    Get Element Attribute    ${picker_locator}    content-desc
+    ${desc_value}=    Set Variable    ${EMPTY}
+    IF    '${desc}' != '' and '${desc}' != 'None'
+        ${desc_value}=    Fetch From Right    ${desc}    ,
+        ${desc_value}=    Strip String    ${desc_value}
+        IF    '${desc_value}' != ''
+            RETURN    ${desc_value}
         END
     END
-
-    ${final_desc}=    Get Element Attribute    ${picker_locator}    content-desc
-    ${final_value}=    Fetch From Right    ${final_desc}    ,
-    ${final_value}=    Strip String    ${final_value}
-    IF    '${final_value}' == '${target_value}'
-        RETURN    ${TRUE}
-    END
-    RETURN    ${FALSE}
-
-Select DOB Picker Value Direct
-    [Arguments]    ${picker_locator}    ${target_value}
-    ${selected}=    Run Keyword And Return Status
-    ...    Picker Wheel Should Show Value
-    ...    ${picker_locator}
-    ...    content-desc
-    ...    ${target_value}
-    RETURN    ${selected}
-
-Picker Wheel Should Show Value
-    [Arguments]    ${picker_locator}    ${_attribute}    ${target_value}
-    ${current_desc}=    Get Element Attribute    ${picker_locator}    content-desc
-    Should Contain    ${current_desc}    ${target_value}
-
-Try Direct DOB Input
-    [Arguments]    ${date_of_birth}
-    ${parts}=    Split String    ${date_of_birth}    -
-    ${day}=    Set Variable    ${parts[0]}
-    ${month}=    Set Variable    ${parts[1]}
-    ${year}=    Set Variable    ${parts[2]}
-    ${slash_date}=    Replace String    ${date_of_birth}    -    /
-    @{candidates}=    Create List    ${slash_date}    ${date_of_birth}
-    FOR    ${candidate}    IN    @{candidates}
-        ${previous_log_level}=    Set Log Level    NONE
-        ${clear_status}=    Run Keyword And Return Status    Clear Text    ${PROFILE_DOB_INPUT}
-        ${input_text_status}=    Run Keyword And Return Status    Input Text    ${PROFILE_DOB_INPUT}    ${candidate}
-        Set Log Level    ${previous_log_level}
-        IF    ${input_text_status}
-            ${verified}=    Run Keyword And Return Status    DOB Field Should Contain Date    ${day}    ${month}    ${year}
-            Run Keyword And Ignore Error    Hide Keyboard
-            IF    ${verified}
-                Log    [PROFILE] DOB direct input strategy: Input Text
-                Run Keyword And Ignore Error    Click Element    ${PROFILE_DOB_CONFIRM_BUTTON}
-                RETURN    direct_input_text
-            END
-        END
-        ${previous_log_level}=    Set Log Level    NONE
-        ${shell_status}=    Run Keyword And Return Status    Execute Adb Shell    input    text    ${candidate}
-        Set Log Level    ${previous_log_level}
-        IF    ${shell_status}
-            ${verified}=    Run Keyword And Return Status    DOB Field Should Contain Date    ${day}    ${month}    ${year}
-            Run Keyword And Ignore Error    Hide Keyboard
-            IF    ${verified}
-                Log    [PROFILE] DOB direct input strategy: adb shell input text
-                Run Keyword And Ignore Error    Click Element    ${PROFILE_DOB_CONFIRM_BUTTON}
-                RETURN    direct_input_shell
-            END
+    # Fallback: read the selected value from the center visible TextView in the picker wheel.
+    # Structure: SeekBar > ViewGroup[0] > ScrollView(flatlist) > ViewGroup > ViewGroup[3] > TextView
+    ${result_status}    ${center_text}=    Run Keyword And Ignore Error
+    ...    Get Text    ${picker_locator}/android.view.ViewGroup/android.widget.ScrollView/android.view.ViewGroup/android.view.ViewGroup[3]/android.widget.TextView
+    IF    '${result_status}' == 'PASS'
+        ${value}=    Strip String    ${center_text}
+        IF    '${value}' != ''
+            RETURN    ${value}
         END
     END
-    Run Keyword And Ignore Error    Hide Keyboard
-    RETURN    ${EMPTY}
-
-DOB Field Should Contain Date
-    [Arguments]    ${day}    ${month}    ${year}
-    ${field_text}=    Get Element Attribute    ${PROFILE_DOB_INPUT}    text
-    ${field_desc}=    Get Element Attribute    ${PROFILE_DOB_INPUT}    content-desc
-    ${combined}=    Catenate    SEPARATOR= |    ${field_text}    ${field_desc}
-    Should Contain    ${combined}    ${day}
-    Should Contain    ${combined}    ${month}
-    Should Contain    ${combined}    ${year}
-
-Mobile Number Field Should Be Populated
-    [Arguments]    ${mobile_number}
-    ${field_text}=    Get Element Attribute    ${PROFILE_MOBILE_NUMBER_INPUT}    text
-    ${field_desc}=    Get Element Attribute    ${PROFILE_MOBILE_NUMBER_INPUT}    content-desc
-    ${combined}=    Catenate    SEPARATOR= |    ${field_text}    ${field_desc}
-    ${normalized_field}=    Replace String Using Regexp    ${combined}    [^0-9]    ${EMPTY}
-    ${normalized_mobile}=    Replace String Using Regexp    ${mobile_number}    [^0-9]    ${EMPTY}
-    Should Contain    ${normalized_field}    ${normalized_mobile}
+    # Fallback: parse content-desc from SeekBar
+    ${desc}=    Get Element Attribute    ${picker_locator}    content-desc
+    ${value}=    Fetch From Right    ${desc}    ,
+    ${value}=    Strip String    ${value}
+    RETURN    ${value}

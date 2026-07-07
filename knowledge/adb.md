@@ -21,17 +21,17 @@ Execute Adb Shell    input    swipe    ${x1}    ${y1}    ${x2}    ${y2}    ${dur
 ```
 Used for consent terms scrolling. Duration of 200-400ms is typically sufficient.
 
-### Keycodes per digit
+### Keycodes per digit (OBSOLETE in production paths)
 ```robot
 Execute Adb Shell    input    keyevent    ${KEYCODE_1}
 ```
-Used for Citizen ID and Mobile Number input. Each digit is sent as a separate keyevent. This triggers proper RN onChange events unlike Appium `sendKeys()`.
+Previously used for Citizen ID and Mobile Number. **Replaced** by Appium `Input Text` as of Sprint 2.11 — single `sendKeys()` call triggers correct RN `onChangeText` (verified byte-identical to manual typing in Sprint 2.10.3). Keycode entry retained only in `resources/benchmark/benchmark_strategies.resource` for benchmark baselines.
 
-### Text input
+### Text input (adb shell — NOT used for app TextInput fields)
 ```robot
 Execute Adb Shell    input    text    ${value}
 ```
-Available but may not trigger RN onChange events reliably. Prefer keycodes per digit for numeric fields.
+Not used for in-app text input. Appium `Input Text` is the production method. `adb shell input text` may be useful for system-level text entry outside the app context.
 
 ## Keycode Reference
 

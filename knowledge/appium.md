@@ -18,7 +18,9 @@ Without this flag, `Execute Adb Shell` is blocked by Appium's security policy.
 
 The app uses React Native with custom gesture handling. Appium's `Click Element`, `Tap`, and W3C Actions do not reliably trigger RN `TouchableOpacity`/`onPress` handlers. The proven workaround is `adb shell input tap` at the element's center coordinates.
 
-For text input, Appium `Input Text` (which uses `element.sendKeys()`) does not trigger RN `onChange` events reliably. `adb shell input keyevent` per digit (keycodes) is the proven approach for Citizen ID and Mobile Number.
+For text input, Appium `Input Text` (which uses `element.sendKeys()` → UiAutomator2 `setText()`) triggers RN `onChangeText` reliably with a single event containing the full value. This was verified byte-identical to manual typing in Sprint 2.10.3 (cid_input_parity). `Input Text` is now the production method for Citizen ID and Mobile Number fields — keycodes have been removed from production paths.
+
+For gesture components (buttons, pickers), `Input Text` does NOT trigger RN `onPress`/`onChange` handlers — those still require `adb shell input tap` or adb swipe.
 
 ## Gesture Patterns
 
@@ -28,10 +30,10 @@ For text input, Appium `Input Text` (which uses `element.sendKeys()`) does not t
 
 ## Known Limitations
 
-- Appium `Send Keys` may trigger the soft keyboard without filling the field on RN
-- `Clear Text` may not work on RN fields that manage their own state
+- Appium `Input Text` reliably fills RN TextInput fields (verified: Citizen ID, Mobile Number). Fails for picker-based fields (DOB) — those require adb swipe + picker interaction.
+- `Clear Text` may not work on RN fields that manage their own state. Use `Tap Profile Element Center` first to focus the field before clearing.
 - `Hide Keyboard` may not dismiss the keyboard on some devices/OS versions
-- Coordinate-based `Tap` from Appium does not trigger RN navigation buttons
+- Coordinate-based `Tap` from Appium does not trigger RN gesture handlers (buttons, picker scroll). Use `adb shell input tap` for gesture components.
 
 ## Internal Project Truth
 

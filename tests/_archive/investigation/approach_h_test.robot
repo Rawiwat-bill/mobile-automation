@@ -1,0 +1,85 @@
+*** Settings ***
+Documentation    Sprint 2.60 Approach H — Suppress OCR resolve, chain to NTB_LC
+Library    AppiumLibrary
+Library    OperatingSystem
+Library    Process
+Resource   ../../resources/app/app_keywords.resource
+Resource   ../../resources/pages/onboarding/landing_screen_page.resource
+Resource   ../../resources/pages/onboarding/consent_screen_page.resource
+Resource   ../../resources/pages/onboarding/profile_screen_page.resource
+Resource   ../../resources/pages/onboarding/pdpa_consent_page.resource
+Resource   ../../resources/pages/onboarding/sign_up_page.resource
+Resource   ../../resources/pages/onboarding/scan_card_intro_page.resource
+Resource   ../../resources/pages/onboarding/id_card_camera_capture_page.resource
+Resource   ../../resources/keywords/onboarding_common.resource
+Library    ../../libraries/config_loader.py
+
+*** Variables ***
+${DIR}    reports/investigation/approach_h/evidence
+${TESTDATA}    testdata/onboarding/ntb.local.yaml
+
+*** Test Cases ***
+Approach H Chain OCR To NTB LC
+    Create Directory    ${DIR}
+    Open Mobile Application
+    ${prev}=    Set Log Level    NONE
+    ${data}=    Load YAML    ${TESTDATA}
+    Set Log Level    ${prev}
+    Log    [FLOW] App launched    WARN
+
+    Run Process    tools/frida/start_frida_bg.sh    chain_ocr_to_ntblc.js
+    Sleep    5s
+    Log    [FRIDA] Approach H hooks active    WARN
+
+    Wait Until Landing Screen Is Displayed
+    Tap Landing Ready Button
+    Allow Android Permission If Visible
+    Log    [FLOW] Landing done    WARN
+
+    Wait Until Consent Screen Is Displayed
+    Tap Consent Accept Button
+    Log    [FLOW] Consent done    WARN
+
+    Wait Until Profile Screen Is Displayed
+    Input Citizen ID    ${data['profile']['citizen_id']}
+    Input Date Of Birth    ${data['profile']['date_of_birth']}
+    Input Mobile Number    ${data['profile']['mobile_number']}
+    Tap Profile Next
+    Log    [FLOW] Profile done    WARN
+
+    Wait Until PDPA Consent Screen Is Displayed
+    Tap PDPA Consent Accept Button
+    Log    [FLOW] PDPA done    WARN
+
+    Wait Until Sign Up Screen Is Displayed
+    Tap Sign Up Lets Start Button
+    Allow Android Permission If Visible
+    Log    [FLOW] Sign Up done    WARN
+
+    Wait Until Scan Card Intro Screen Is Displayed
+    Tap Scan Card Intro Next
+    Allow Android Permission If Visible
+    Log    [FLOW] Scan Card Intro Next tapped — Frida should intercept OCR here    WARN
+
+    Sleep    30s
+    Log    [FLOW] Waited 30s for OCR→NTB_LC chain    WARN
+
+    Run Process    sh    -c    adb exec-out screencap -p > ${DIR}/result_screen.png
+    ${src}=    Get Source
+    Create File    ${DIR}/result_source.xml    ${src}    UTF-8
+    Log    [FLOW] Evidence captured    WARN
+
+    ${on_camera}=    Run Keyword And Return Status
+    ...    Page Should Contain Element    xpath=//*[@resource-id="RVCamera"]
+    Log    [RESULT] On camera screen: ${on_camera}    WARN
+
+    Run Keyword If    not ${on_camera}
+    ...    Log    [RESULT] *** CAMERA SKIPPED! UI transitioned past camera! ***    WARN
+
+    ${frida_log}=    Run Process    cat    /tmp/frida_listener.log
+    Create File    ${DIR}/frida_log.txt    ${frida_log.stdout}    UTF-8
+
+    Run Process    sh    -c    pkill -f "frida -U" 2>/dev/null
+    Sleep    2s
+    Log    [FLOW] Done    WARN
+    Close Application

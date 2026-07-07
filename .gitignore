@@ -23,5 +23,9 @@ apps/android/*.apk
 *.secret.yaml
 .env
 
-# Local sensitive test data
+# Logs
+*.log
+
+# Dependencies
 node_modules/
+.opencode/

@@ -71,4 +71,5 @@
 2. Integrate cloud device testing
 3. Set up CI/CD pipeline with Robot Framework
 4. Add parallel test execution
-5. Define performance benchmarks for each flow
+5. Run benchmarks and establish baseline for each flow
+6. Optimize production strategy based on benchmark evidence (waiting on benchmark runs)
