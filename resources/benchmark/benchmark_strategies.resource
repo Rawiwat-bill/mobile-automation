@@ -201,33 +201,6 @@ Blur Mobile
     Run Keyword And Ignore Error    Wait Until Keyword Succeeds    5x    300ms    Field Should Be Blurred    ${BENCHMARK_MOBILE_INPUT}
     End Phase
 
-Field Should Be Blurred
-    [Arguments]    ${locator}
-    ${focused}=    Get Element Attribute    ${locator}    focused
-    Should Be Equal As Strings    ${focused}    false
-
-Tap By Coordinates
-    [Arguments]    ${x}    ${y}
-    ${tap_point}=    Create List    ${x}    ${y}
-    Tap    ${tap_point}
-    Record Appium Action
-
-Enter Digits By Keycodes
-    [Arguments]    ${digits_text}
-    ${digits}=    Evaluate    ''.join(ch for ch in """${digits_text}""" if ch.isdigit())
-    ${keycodes}=    Evaluate    {'0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16}
-    ${digit_count}=    Get Length    ${digits}
-    ${previous}=    Set Log Level    NONE
-    FOR    ${index}    IN RANGE    ${digit_count}
-        ${end_index}=    Evaluate    ${index} + 1
-        ${digit}=    Get Substring    ${digits}    ${index}    ${end_index}
-        ${keycode}=    Get From Dictionary    ${keycodes}    ${digit}
-        Press Keycode    ${keycode}
-        Record Appium Action
-    END
-    Set Log Level    ${previous}
-    Record ADB Call
-
 Select Benchmark Picker Value
     [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}
     Wait Until Element Is Visible    ${picker_locator}    3s

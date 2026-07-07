@@ -146,3 +146,33 @@ Log Benchmark Result
     Set Strategy    ${field}    ${strategy}
     Set Result    ${status}
     End Benchmark
+
+
+# ─── Generic Interaction Helpers ──────────────────────────────────────────
+
+Tap By Coordinates
+    [Arguments]    ${x}    ${y}
+    ${tap_point}=    Create List    ${x}    ${y}
+    Tap    ${tap_point}
+    Record Appium Action
+
+Field Should Be Blurred
+    [Arguments]    ${locator}
+    ${focused}=    Get Element Attribute    ${locator}    focused
+    Should Be Equal As Strings    ${focused}    false
+
+Enter Digits By Keycodes
+    [Arguments]    ${digits_text}
+    ${digits}=    Evaluate    ''.join(ch for ch in """${digits_text}""" if ch.isdigit())
+    ${keycodes}=    Evaluate    {'0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16}
+    ${digit_count}=    Get Length    ${digits}
+    ${previous}=    Set Log Level    NONE
+    FOR    ${index}    IN RANGE    ${digit_count}
+        ${end_index}=    Evaluate    ${index} + 1
+        ${digit}=    Get Substring    ${digits}    ${index}    ${end_index}
+        ${keycode}=    Get From Dictionary    ${keycodes}    ${digit}
+        Press Keycode    ${keycode}
+        Record Appium Action
+    END
+    Set Log Level    ${previous}
+    Record ADB Call
