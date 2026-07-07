@@ -3,7 +3,9 @@
 .vscode/
 
 # Robot Framework
-reports/
+/reports/*
+!/reports/repository_audit/
+!/reports/repository_cleanup/
 output.xml
 log.html
 report.html
