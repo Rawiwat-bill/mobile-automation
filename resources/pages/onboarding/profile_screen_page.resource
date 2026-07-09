@@ -221,22 +221,19 @@ Select DOB Picker Value
         ${picker_rect}=    Get Element Rect    ${picker_locator}
         ${center_x}=    Evaluate    int(${picker_rect['x']} + (${picker_rect['width']} / 2))
         ${diff}=    Evaluate    abs(int(${current_index}) - int(${target_index}))
-        ${duration}=    Set Variable    500
         IF    ${diff} <= 2
-            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.35))
-            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.55))
-            ${duration}=    Set Variable    50
+            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_FINE_END_RATIO}))
+            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_FINE_START_RATIO}))
         ELSE
-            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.30))
-            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * 0.70))
-            ${duration}=    Set Variable    50
+            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_COARSE_END_RATIO}))
+            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_COARSE_START_RATIO}))
         END
         IF    '${direction}' == 'up'
-            Execute Adb Shell    input    swipe    ${center_x}    ${bottom_y}    ${center_x}    ${top_y}    ${duration}
+            Execute Adb Shell    input    swipe    ${center_x}    ${bottom_y}    ${center_x}    ${top_y}    ${DOB_DRAG_DURATION}
         ELSE
-            Execute Adb Shell    input    swipe    ${center_x}    ${top_y}    ${center_x}    ${bottom_y}    ${duration}
+            Execute Adb Shell    input    swipe    ${center_x}    ${top_y}    ${center_x}    ${bottom_y}    ${DOB_DRAG_DURATION}
         END
-        Sleep    0.1s
+        Sleep    ${DOB_SETTLE_TIME}s
     END
     Record DOB Failure    ${value_kind}    ${target_value}    exhausted 25 attempts
     Capture DOB Failure Evidence    ${value_kind}    ${target_value}

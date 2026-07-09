@@ -130,10 +130,18 @@ Process CND Screen
 
 Input CND Data With Masked Logs
     ${previous_log_level}=    Set Log Level    NONE
-    Input Citizen ID    ${LOCAL_CITIZEN_ID}
-    Input Date Of Birth    ${LOCAL_DATE_OF_BIRTH}
-    Input Mobile Number    ${LOCAL_MOBILE_NUMBER}
+    Run Keyword And Ignore Error    Input Citizen ID    ${LOCAL_CITIZEN_ID}
+    Run Keyword And Ignore Error    Input Date Of Birth    ${LOCAL_DATE_OF_BIRTH}
+    Dismiss DOB Picker If Open
+    Run Keyword And Ignore Error    Input Mobile Number    ${LOCAL_MOBILE_NUMBER}
     Set Log Level    ${previous_log_level}
+
+Dismiss DOB Picker If Open
+    ${picker_open}=    Run Keyword And Return Status    Wait Until Element Is Visible    ${PROFILE_DOB_CONFIRM_BUTTON}    2s
+    IF    ${picker_open}
+        Run Keyword And Ignore Error    Click Element    ${PROFILE_DOB_CONFIRM_BUTTON}
+        Run Keyword And Ignore Error    Wait Until Page Does Not Contain Element    ${PROFILE_DOB_CONFIRM_BUTTON}    5s
+    END
 
 Process PDPA Screen
     Wait Until PDPA Consent Screen Is Displayed

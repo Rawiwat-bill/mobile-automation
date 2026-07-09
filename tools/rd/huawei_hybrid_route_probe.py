@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+# Huawei hybrid manual-assist route probe (investigation). adb-only except manual CID+Mobile entry.
+# Goal: Landing -> Consent -> Profile -> [manual CID+Mobile] -> DOB -> Next -> PDPA -> SignUp -> ScanCard -> OCR Camera.
+import subprocess, re, time, os, json, sys, yaml
+
+UDID="48ZYD25C01422768"
+EVID="reports/investigation/huawei_hybrid_route/evidence"
+DUMP="/data/local/tmp/hh.xml"; os.makedirs(EVID,exist_ok=True)
+PAUSE_TIMEOUT=int(os.environ.get("PAUSE_TIMEOUT","300"))  # seconds to wait for manual entry
+
+def sh(c,t=30): return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
+def dump():
+    sh(f"adb -s {UDID} shell uiautomator dump {DUMP} >/dev/null 2>&1"); return sh(f"adb -s {UDID} shell cat {DUMP}")
+def screen():
+    x=dump()
+    for m,t in [("RVCamera","ocr_camera"),("screenScanCardIntro_","scan_card_intro"),("screenPDPA_","pdpa"),("Personal data consent","pdpa"),("screenProfile_","profile"),("screenSignUp_","signup"),("Let\u2019s start","signup"),("Let's start","signup"),("WebView","consent"),("Terms and Conditions","consent"),("screenLanding_","landing")]:
+        if m in x: return t
+    return "unknown"
+def center(attr,val,xml=None):
+    m=re.search(attr+r'="'+re.escape(val)+r'"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',xml or dump())
+    return ((int(m.group(1))+int(m.group(3)))//2,(int(m.group(2))+int(m.group(4)))//2) if m else None
+def attr(attr,val,name,xml=None):
+    m=re.search(attr+r'="'+re.escape(val)+r'"[^>]*'+name+r'="([^"]*)"',xml or dump()); return m.group(1) if m else None
+def tap(x,y): sh(f"adb -s {UDID} shell input tap {x} {y}"); time.sleep(0.6)
+def swipe(a,b,c,d,dur): sh(f"adb -s {UDID} shell input swipe {a} {b} {c} {d} {dur}"); time.sleep(0.35)
+def capture(l):
+    sh(f"adb -s {UDID} exec-out screencap -p > {EVID}/{l}.png"); open(f"{EVID}/{l}.xml","w").write(dump())
+def wait_screen(t,tmo=30):
+    for _ in range(tmo):
+        if screen()==t: return True
+        time.sleep(1)
+    return False
+def digits(resid):
+    t=attr("resource-id",resid,"text") or ""
+    return len(re.sub(r"\D","",t))
+LOG=[]
+def log(s,step,status,detail=""):
+    LOG.append({"screen":s,"step":step,"status":status,"detail":detail}); print(f"[{s}] {step}: {status} {detail}",flush=True)
+
+MONTHS={"January":1,"February":2,"March":3,"April":4,"May":5,"June":6,"July":7,"August":8,"September":9,"October":10,"November":11,"December":12}
+def to_n(v,kind): return MONTHS[v] if kind=="month" else int(v)
+def set_wheel(resid,target,kind):
+    for _ in range(30):
+        x=dump()
+        m=re.search(r'resource-id="'+resid+r'"[^>]*content-desc="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',x)
+        if not m: return "no-wheel"
+        cur=m.group(1).split(",")[-1].strip()
+        if cur==target: return "ok"
+        x1,y1,x2,y2=int(m.group(2)),int(m.group(3)),int(m.group(4)),int(m.group(5)); cx=(x1+x2)//2; h=y2-y1
+        try: cn=to_n(cur,kind); tn=to_n(target,kind)
+        except: return "parse-fail"
+        top,bot=(int(y1+h*0.30),int(y1+h*0.70)) if abs(cn-tn)>2 else (int(y1+h*0.40),int(y1+h*0.60))
+        swipe(cx,bot,cx,top,400) if cn<tn else swipe(cx,top,cx,bot,400)
+    return "timeout"
+
+def main():
+    dob=yaml.safe_load(open("testdata/onboarding/ntb.local.yaml"))["profile"]["date_of_birth"]
+    p=dob.split("-"); DAY,MON,YEAR=p[0],p[1],p[2]; MONNAME={v:k for k,v in MONTHS.items()}[int(MON)]
+    sh(f"adb -s {UDID} shell am force-stop com.bangkokbank.blue.dev")
+    sh(f"adb -s {UDID} shell pm clear com.bangkokbank.blue.dev")
+    sh(f"adb -s {UDID} shell am start -n com.bangkokbank.blue.dev/com.bangkokbank.blue.MainActivity")
+    for _ in range(45):
+        if center("resource-id","screenLanding_skipButton"): break
+        time.sleep(1)
+    capture("01_landing"); tap(*center("resource-id","screenLanding_skipButton")); log("landing","tap_skip","ok")
+    for _ in range(15):
+        if center("resource-id","screenLanding_buttonReady"): break
+        time.sleep(1)
+    tap(*center("resource-id","screenLanding_buttonReady")); log("landing","tap_ready","ok")
+    if not wait_screen("consent",25): return finish("consent not reached: "+screen())
+    capture("02_consent_before"); time.sleep(7)
+    for _ in range(25): swipe(360,1300,360,300,45)
+    tap(*center("content-desc","Accept")); log("consent","tap_accept","ok"); capture("02_consent_after")
+    if not wait_screen("profile",30): return finish("profile not reached: "+screen())
+    capture("03_profile_before")
+    c=center("resource-id","cid")
+    if not c: return finish("cid field not found on Profile")
+    tap(*c); log("profile","focus_cid","ok",str(c))  # raises soft keyboard for tester
+    # ---- MANUAL PAUSE: tester types Citizen ID + Mobile ----
+    print("\n>>> MANUAL STEP: tester, please type Citizen ID (13 digits) AND Mobile (10 digits) on the device now.",flush=True)
+    print(">>> Values per testdata/onboarding/ntb.local.yaml. Script auto-resumes when both fields are populated.",flush=True)
+    t0=time.time(); resumed=False
+    while time.time()-t0 < PAUSE_TIMEOUT:
+        cid_n=digits("cid"); mob_n=digits("screenProfile_textInputMobileNumber")
+        if cid_n>=13 and mob_n>=10:
+            resumed=True; break
+        time.sleep(2)
+    dur=round(time.time()-t0,1)
+    if not resumed:
+        capture("03_profile_manual_timeout")
+        return finish(f"manual entry NOT detected within {PAUSE_TIMEOUT}s (cid_digits={digits('cid')}, mobile_digits={digits('screenProfile_textInputMobileNumber')}) — no tester present")
+    log("profile","manual_entry","RESUMED",f"duration={dur}s cid_digits={digits('cid')} mobile_digits={digits('screenProfile_textInputMobileNumber')}")
+    capture("03_profile_after_manual")
+    sh(f"adb -s {UDID} shell input keyevent KEYCODE_BACK")  # dismiss keyboard
+    time.sleep(1)
+    # ---- DOB picker (adb) ----
+    c=center("resource-id","screenProfile_textInputDob-container")
+    if c:
+        tap(*c); time.sleep(1)
+        ry=set_wheel("screenProfile_calendarDatePicker-yearScroll",YEAR,"number")
+        rm=set_wheel("screenProfile_calendarDatePicker-monthScroll",MONNAME,"month")
+        rd=set_wheel("screenProfile_calendarDatePicker-dateScroll",DAY,"number")
+        d=center("content-desc","Done")
+        if d: tap(*d)
+        log("profile","dob_picker",f"y={ry}/m={rm}/d={rd}",f"done={bool(d)}"); time.sleep(1)
+    else: return finish("dob container not found")
+    capture("03_profile_after_dob")
+    # wait for Next enabled, then tap
+    enabled=False
+    for _ in range(20):
+        if attr("resource-id","screenProfile_buttonNext","enabled")=="true": enabled=True; break
+        time.sleep(1)
+    c=center("resource-id","screenProfile_buttonNext")
+    if c and enabled:
+        tap(*c); log("profile","tap_next","ok",f"enabled={enabled}")
+    else:
+        return finish(f"profile Next not enabled (enabled={attr('resource-id','screenProfile_buttonNext','enabled')})")
+    # ---- PDPA ----
+    if not wait_screen("pdpa",30): return finish("pdpa not reached: "+screen())
+    capture("04_pdpa_before")
+    for _ in range(16): swipe(360,1300,360,300,45)
+    c=center("content-desc","Accept")
+    if c: tap(*c); log("pdpa","tap_accept","ok"); capture("04_pdpa_after")
+    else: return finish("pdpa Accept not found")
+    # ---- SignUp ----
+    if not wait_screen("signup",30): return finish("signup not reached: "+screen())
+    capture("05_signup")
+    c=center("content-desc","Let\u2019s start") or center("content-desc","Let's start")
+    if c: tap(*c); log("signup","tap_lets_start","ok")
+    else: return finish("signup Let's start not found")
+    # ---- ScanCardIntro ----
+    if not wait_screen("scan_card_intro",30): return finish("scan not reached: "+screen())
+    capture("06_scan_card_intro")
+    c=center("resource-id","screenScanCardIntro_buttonReady")
+    if c: tap(*c); log("scan_card_intro","tap_next","ok")
+    else: return finish("scan next not found")
+    # ---- OCR Camera ----
+    if wait_screen("ocr_camera",30):
+        capture("07_ocr_camera"); log("ocr_camera","reached","OK","Huawei hybrid route reached OCR Camera")
+    else:
+        return finish("ocr_camera not reached: "+screen())
+    finish("ROUTE_COMPLETE: reached OCR Camera")
+
+def finish(msg):
+    open("reports/investigation/huawei_hybrid_route/route_status.json","w").write(json.dumps(LOG,indent=2))
+    print("\n>>> RESULT:",msg,flush=True)
+    print("=== PER-SCREEN SUMMARY ===")
+    for e in LOG: print(f"{e['screen']:16} {e['step']:22} {e['status']}")
+    return None
+
+if __name__=="__main__": main()

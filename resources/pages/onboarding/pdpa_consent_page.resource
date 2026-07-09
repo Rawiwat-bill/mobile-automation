@@ -19,7 +19,7 @@ Wait Until PDPA Consent Screen Is Displayed
 Scroll Down PDPA Content
     Set Test Variable    ${PDPA_SWIPE_COUNT}    0
     FOR    ${index}    IN RANGE    ${PDPA_MAX_SWIPES}
-        Run Process    adb    shell    input    swipe    540    1950    540    350    50
+        Execute Adb Shell    input    swipe    540    1950    540    350    50
         ${next_count}=    Evaluate    ${PDPA_SWIPE_COUNT} + 1
         Set Test Variable    ${PDPA_SWIPE_COUNT}    ${next_count}
     END
