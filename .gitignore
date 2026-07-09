@@ -6,6 +6,9 @@
 /reports/*
 !/reports/repository_audit/
 !/reports/repository_cleanup/
+!/reports/ocr_runtime/
+/reports/ocr_runtime/evidence/
+/reports/ocr_runtime/robot/
 output.xml
 log.html
 report.html
