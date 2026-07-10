@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# Resume from the CURRENT Profile state (no pm clear / re-drive). Polls for manual CID+Mobile entry,
+# Resume from the CURRENT Profile state (no pm clear / re-drive). adb-inputs CID+Mobile (focus + input text),
 # then adb-drives DOB -> Next -> PDPA -> SignUp -> ScanCard -> OCR Camera -> Take Photo -> DOPA (STOP).
 import subprocess, re, time, os, json, sys, yaml
 sys.stdout.reconfigure(line_buffering=True)
 UDID="48ZYD25C01422768"; DUMP="/data/local/tmp/hr.xml"
 EVID="reports/investigation/huawei_hybrid_route/evidence"; os.makedirs(EVID,exist_ok=True)
-PAUSE_TIMEOUT=int(os.environ.get("PAUSE_TIMEOUT","600"))
 MONTHS={"January":1,"February":2,"March":3,"April":4,"May":5,"June":6,"July":7,"August":8,"September":9,"October":10,"November":11,"December":12}
-_DOB=yaml.safe_load(open("testdata/onboarding/ntb.local.yaml"))["profile"]["date_of_birth"]
-_DP=_DOB.split("-"); DAY,MON,YEAR=_DP[0],_DP[1],_DP[2]; MONNAME={v:k for k,v in MONTHS.items()}[int(MON)]   # from fixture (was hardcoded 1995)
+_PROF=yaml.safe_load(open("testdata/onboarding/ntb.local.yaml"))["profile"]
+CID=re.sub(r"\D","",_PROF["citizen_id"]); MOB=re.sub(r"\D","",_PROF["mobile_number"])
+_DOB=_PROF["date_of_birth"]; _DP=_DOB.split("-"); DAY,MON,YEAR=_DP[0],_DP[1],_DP[2]; MONNAME={v:k for k,v in MONTHS.items()}[int(MON)]   # from fixture (was hardcoded 1995)
 LOG=[]
 def log(s,step,status,d=""): LOG.append({"screen":s,"step":step,"status":status,"detail":d}); print(f"[{s}] {step}: {status} {d}")
 def sh(c,t=30): return subprocess.run(c,shell=True,capture_output=True,text=True,timeout=t).stdout
@@ -19,7 +19,10 @@ def screen():
         if m in x: return t
     return "unknown"
 def center(a,v):
-    m=re.search(a+r'="'+re.escape(v)+r'"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',dump()); return ((int(m.group(1))+int(m.group(3)))//2,(int(m.group(2))+int(m.group(4)))//2) if m else None
+    m=re.search(r'<node[^>]*'+a+r'="'+re.escape(v)+r'"[^>]*>',dump())
+    if not m: return None
+    b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',m.group(0))
+    return ((int(b.group(1))+int(b.group(3)))//2,(int(b.group(2))+int(b.group(4)))//2) if b else None
 def attr(a,v,n):
     # order-independent: uiautomator emits text BEFORE resource-id, so anchor on the
     # whole node opening tag then read the target attr anywhere inside it.
@@ -27,7 +30,11 @@ def attr(a,v,n):
     if not m: return None
     mm=re.search(n+r'="([^"]*)"',m.group(0)); return mm.group(1) if mm else None
 def digits(resid):
-    t=attr("resource-id",resid,"text") or ""; return len(re.sub(r"\D","",t))
+    # digit count of REAL input only. RN reports the placeholder as `text` when the field is empty
+    # (e.g. "Enter 13-digit Citizen ID number"); placeholder/hint text contains letters -> 0 real digits.
+    t=attr("resource-id",resid,"text") or ""
+    if re.search(r'[a-zA-Z]',t): return 0
+    return len(re.sub(r"\D","",t))
 def tap(x,y): sh(f"adb -s {UDID} shell input tap {x} {y}"); time.sleep(0.6)
 def swipe(x1,y1,x2,y2,dur): sh(f"adb -s {UDID} shell input swipe {x1} {y1} {x2} {y2} {dur}"); time.sleep(0.35)
 def capture(l): sh(f"adb -s {UDID} exec-out screencap -p > {EVID}/{l}.png"); open(f"{EVID}/{l}.xml","w").write(dump())
@@ -47,6 +54,39 @@ def set_wheel(resid,target,kind):
         top,bot=(int(y1+h*0.30),int(y1+h*0.70)) if abs(cn-tn)>2 else (int(y1+h*0.40),int(y1+h*0.60))
         (swipe(cx,bot,cx,top,400) if cn<tn else swipe(cx,top,cx,bot,400))
     return "timeout"
+def adb_input_field(resid, value, label, expect):
+    # Certified adb text-entry: resolve center -> tap -> verify focus -> input text -> verify digits.
+    # Order-independent node parsing (center()/attr() parse the full <node> first). Never logs raw value.
+    c=center("resource-id",resid)
+    if not c:
+        log("profile",f"{label}_focus","FAIL","field not found"); capture(f"FAIL_{label}_node"); return False
+    tap(*c)
+    ok=False; t0=time.time()
+    while time.time()-t0<10:
+        if attr("resource-id",resid,"focused")=="true": ok=True; break
+        time.sleep(0.5)
+    log("profile",f"{label}_focus",str(ok).lower())
+    if not ok:
+        capture(f"FAIL_{label}_focus"); return False
+    if digits(resid)>0:  # populated with a real prior value (placeholder/empty -> 0 -> skip)
+        n=digits(resid)
+        for _ in range(n+8):  # DEL covers digits + formatting separators; extra DELs are no-ops. (SELECT_ALL unreliable on RN/EMUI)
+            sh(f"adb -s {UDID} shell input keyevent 67"); time.sleep(0.05)
+        time.sleep(0.4)
+        cleared=digits(resid)==0
+        log("profile",f"{label}_cleared",str(cleared).lower())
+        if not cleared:
+            capture(f"FAIL_{label}_clear"); return False  # fail fast: clear did not empty the field
+    sh(f"adb -s {UDID} shell input text {value}")
+    n=0; t0=time.time()
+    while time.time()-t0<15:
+        n=digits(resid)
+        if n==expect: break
+        time.sleep(0.5)
+    log("profile",f"{label}_digits",str(n))
+    if n!=expect:
+        capture(f"FAIL_{label}_digits"); return False  # exact-count verification (no lenient >=)
+    return True
 def finish(msg):
     open("reports/investigation/huawei_hybrid_route/resume_status.json","w").write(json.dumps(LOG,indent=2))
     print("\n>>> RESULT:",msg); 
@@ -55,15 +95,11 @@ def finish(msg):
 def main():
     print("current screen:",screen())
     if screen()!="profile": return finish(f"not on Profile (screen={screen()}); aborting resume")
-    # ensure cid focused + keyboard up
-    sh(f"adb -s {UDID} shell input tap 347 416"); time.sleep(1)
-    print(">>> MANUAL STEP: type FULL 13-digit Citizen ID, then tap Mobile, type FULL 10-digit Mobile. (RN clears PARTIAL values on focus change — complete each field before moving.)")
-    t0=time.time(); resumed=False
-    while time.time()-t0<PAUSE_TIMEOUT:
-        if digits("cid")>=13 and digits("screenProfile_textInputMobileNumber")>=10: resumed=True; break
-        time.sleep(3)
-    if not resumed: return finish(f"manual entry not detected in {PAUSE_TIMEOUT}s (cid={digits('cid')},mobile={digits('screenProfile_textInputMobileNumber')})")
-    log("profile","manual_entry","RESUMED",f"dur={round(time.time()-t0)}s")
+    print("\n>>> ADB PROFILE INPUT: CID focused and populated automatically; Mobile focused and populated automatically.",flush=True)
+    if not adb_input_field("cid", CID, "cid", 13):
+        return finish("CID adb-input failed (focus not confirmed within 10s or digits < 13)")
+    if not adb_input_field("screenProfile_textInputMobileNumber", MOB, "mobile", 10):
+        return finish("Mobile adb-input failed (focus not confirmed within 10s or digits < 10)")
     sh(f"adb -s {UDID} shell input keyevent KEYCODE_BACK"); time.sleep(1)  # dismiss keyboard
     # DOB
     c=center("resource-id","screenProfile_textInputDob-container")
@@ -91,6 +127,8 @@ def main():
     else: return finish("scan next not found")
     if not wait("ocr_camera",30): return finish("ocr_camera not reached: "+screen())
     capture("07_ocr_camera"); log("ocr_camera","reached","OK")
+    if os.environ.get("STOP_AT_OCR_CAMERA")=="1":
+        return finish("SMOKE STOP: reached OCR Camera (STOP_AT_OCR_CAMERA=1; OCR capture skipped)")
     print("\n>>> OCR RUNTIME: hold the ID card in front of the camera. Tapping Take Photo in 8s.",flush=True); time.sleep(8)
     for btn in ["permission_allow_button","permission_allow_foreground_only_button"]:
         pc=center("resource-id",btn)
