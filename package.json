@@ -4,5 +4,9 @@
   },
   "devDependencies": {
     "@dietrichgebert/ponytail": "^4.8.4"
+  },
+  "scripts": {
+    "appium": "appium --use-plugins=inspector --allow-cors --relaxed-security",
+    "etb:physical": "robot -v DEVICE_NAME:R5CWC1AXKSZ -d reports tests/android/etb/etb_flow.robot"
   }
 }
