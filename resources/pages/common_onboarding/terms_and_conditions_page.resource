@@ -1,6 +1,6 @@
 *** Settings ***
 Library     AppiumLibrary
-Resource    ../../../../locators/android/onboarding/etb/terms_and_conditions_locators.resource
+Resource    ../../../locators/android/common_onboarding/terms_and_conditions_locators.resource
 
 
 *** Variables ***
