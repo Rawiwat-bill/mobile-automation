@@ -17,7 +17,7 @@ Open Mobile Application
     ...    platformName=Android
     ...    automationName=UiAutomator2
     ...    deviceName=${DEVICE_NAME}
-    ...    app=${APK_PATH}
+    # ...    app=${APK_PATH}
     ...    appPackage=${APP_PACKAGE}
     ...    appActivity=${APP_ACTIVITY}
     ...    noReset=false
