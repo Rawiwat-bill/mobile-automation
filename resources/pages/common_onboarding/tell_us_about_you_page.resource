@@ -1,6 +1,6 @@
 *** Settings ***
-Library     AppiumLibrary
 Library     String
+Library     AppiumLibrary
 Resource    ../../../locators/android/common_onboarding/tell_us_about_you_locators.resource
 Resource    ../../app/app_constants.resource
 Resource    ../../keywords/dob_stability_keywords.resource
@@ -24,21 +24,20 @@ Wait Until Fields Are Blurred
 Fields Should Be Blurred
     [Documentation]    Verify that the fields are blurred (not focused)
     ${citizen_focused}=    Get Element Attribute    ${TELL_US_ABOUT_YOU_CID_INPUT}    focused
-    # ${dob_focused}=    Get Element Attribute    ${PROFILE_DOB_INPUT}    focused
-    # ${mobile_focused}=    Get Element Attribute    ${PROFILE_MOBILE_NUMBER_INPUT}    focused
+    ${dob_focused}=    Get Element Attribute    ${TELL_US_ABOUT_YOU_DOB_INPUT}    focused
+    ${mobile_focused}=    Get Element Attribute    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_INPUT}    focused
     Should Be Equal As Strings    ${citizen_focused}    false
-    # Should Be Equal As Strings    ${dob_focused}    false
-    # Should Be Equal As Strings    ${mobile_focused}    false
+    Should Be Equal As Strings    ${dob_focused}    false
+    Should Be Equal As Strings    ${mobile_focused}    false
 
-Input Text Field
-    [Documentation]    Clear the field, input text, and return the displayed value.
+Input Text And Hide Keyboard
+    [Documentation]    Input text into a field and hide the keyboard
     [Arguments]    ${input_locator}    ${value}
     ${previous_log_level}=    Set Log Level    NONE
     Clear Text    ${input_locator}
     Input Text    ${input_locator}    ${value}
-    ${displayed}=    Get Text    ${input_locator}
     Set Log Level    ${previous_log_level}
-    RETURN    ${displayed}
+    Hide Keyboard Custom
 
 Input Citizen ID
     [Documentation]    Input the citizen ID on the "Tell us about you" screen
@@ -46,11 +45,7 @@ Input Citizen ID
 
     Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_CITIZEN_ID_CONTAINER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_CID_INPUT}
-    Input Text    ${TELL_US_ABOUT_YOU_CID_INPUT}    ${citizen_id}
-    Hide Keyboard Custom
-    # ${displayed}=    Input Text Field    ${TELL_US_ABOUT_YOU_CID_INPUT}    ${citizen_id}
-    # Run Keyword And Ignore Error    Hide Keyboard
-    # Wait Until Fields Are Blurred
+    Input Text And Hide Keyboard    ${TELL_US_ABOUT_YOU_CID_INPUT}    ${citizen_id}
 
 Select Date Of Birth
     [Documentation]    Input the date of birth on the "Tell us about you" screen
@@ -59,16 +54,19 @@ Select Date Of Birth
     Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_CONTAINER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_DOB_INPUT}
     Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
-    Map Date Of Birth    ${date_of_birth}
+    ${year}    ${month}    ${day}=    Seperate Date Of Birth    ${date_of_birth}
+    Swipe DOB Picker    ${year}    ${month}    ${day}
+    Click Element    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER_BUTTON_DONE}
 
-Map Date Of Birth
+Seperate Date Of Birth
     [Documentation]    Map the date of birth to day, month, and year.
     [Arguments]    ${date_of_birth}
 
     ${day}    ${month}    ${year}=    Split String    ${date_of_birth}    -
+    ${day_int}=    Convert To Integer    ${day}
     ${month_int}=    Convert To Integer    ${month}
-
-    Swipe DOB Picker    ${year}    ${month_int}    ${day}
+    ${year_int}=    Convert To Integer    ${year}
+    RETURN    ${year_int}    ${month_int}    ${day_int}
 
 Swipe DOB Picker
     [Documentation]    Swipe the DOB picker to the target dob.
@@ -115,35 +113,48 @@ Swipe DOB Picker
 
     # Swipe the year wheel to the target value
     FOR    ${i}    IN RANGE    ${steps_year}
-        Swipe DOB Wheel    ${rect_year}    ${year_dir}
+        Process Wheel Swipe    ${rect_year}    ${year_dir}
     END
     Log    [PERF] DOB Year Picker: current=${current_year}, target=${target_year}, steps=${steps_year}
 
     # Swipe the month wheel to the target value
     FOR    ${i}    IN RANGE    ${steps_month}
-        Swipe DOB Wheel    ${rect_month}    ${month_dir}
+        Process Wheel Swipe    ${rect_month}    ${month_dir}
     END
     Log    [PERF] DOB Month Picker: current=${current_month}, target=${target_month}, steps=${steps_month}
 
     # Swipe the day wheel to the target value
     FOR    ${i}    IN RANGE    ${steps_day}
-        Swipe DOB Wheel    ${rect_day}    ${day_dir}
+        Process Wheel Swipe    ${rect_day}    ${day_dir}
     END
     Log    [PERF] DOB Day Picker: current=${current_day}, target=${target_day}, steps=${steps_day}
 
-Swipe DOB Wheel
+Process Wheel Swipe
     [Documentation]    Swipe the DOB wheel in the specified direction.
     [Arguments]    ${rect}    ${direction}
 
     ${center_x}=    Evaluate    int(${rect['x']} + ${rect['width']} / 2)
     ${center_y}=    Evaluate    int(${rect['y']} + ${rect['height']} / 2)
 
-    ${offset}=    Evaluate    int(${rect['height']} * 0.05)
+    ${offset}=    Evaluate    int(${rect['height']} * 0.10)
 
     ${start_y}=    Evaluate    ${center_y} + ${offset}
     ${end_y}=    Evaluate    ${center_y} - ${offset}
     IF    '${direction}' == 'down'
-        Swipe    start_x=${center_x}    start_y=${end_y}    end_x=${center_x}    end_y=${start_y}    duration=200
+        Swipe    start_x=${center_x}    start_y=${end_y}    end_x=${center_x}    end_y=${start_y}    duration=300
     ELSE
-        Swipe    start_x=${center_x}    start_y=${start_y}    end_x=${center_x}    end_y=${end_y}    duration=200
+        Swipe    start_x=${center_x}    start_y=${start_y}    end_x=${center_x}    end_y=${end_y}    duration=300
     END
+
+Input Mobile Number
+    [Documentation]    Input the mobile number on the "Tell us about you" screen
+    [Arguments]    ${mobile_number}
+
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_CONTAINER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
+    Click Element    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_INPUT}
+    Input Text And Hide Keyboard    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_INPUT}    ${mobile_number}
+
+Click Next Button
+    [Documentation]    Click the "Next" button on the "Tell us about you" screen
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_BUTTON_NEXT}    ${TELL_US_ABOUT_YOU_TIMEOUT}
+    Click Element    ${TELL_US_ABOUT_YOU_BUTTON_NEXT}

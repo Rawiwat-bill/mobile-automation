@@ -30,4 +30,7 @@ Common Onboarding Flow
     Mark Health Checkpoint    TERMS_AND_CONDITIONS_ACCEPTED
     Wait Until Tell Us About You Screen Is Displayed
     Input Citizen ID    ${citizen_id}
-    Select Date Of Birth     ${date_of_birth}
+    Select Date Of Birth    ${date_of_birth}
+    Input Mobile Number    ${mobile_number}
+    Wait Until Fields Are Blurred
+    Click Next Button

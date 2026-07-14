@@ -1,6 +1,6 @@
 *** Settings ***
 Resource    ../../../resources/app/app_keywords.resource
-Resource    ../../keywords/common_onboarding/onboarding_keyword.resource
+Resource    ../../keywords/common_onboarding/common_onboarding_keyword.resource
 
 
 *** Keywords ***
