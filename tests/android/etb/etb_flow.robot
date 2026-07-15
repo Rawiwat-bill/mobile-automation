@@ -23,3 +23,4 @@ ETB Onboarding Flow
     ...    ${data['profile']['citizen_id']}
     ...    ${data['profile']['date_of_birth']}
     ...    ${data['profile']['mobile_number']}
+    ...    ${data['profile']['laser_code']}

@@ -5,6 +5,8 @@ ${APPIUM_URL}               http://127.0.0.1:4723
 ${DEVICE_NAME}              Android Emulator
 ${APK_PATH}                 ${CURDIR}/../../apps/android/app.apk
 
+${NCBD_LOADING_TIMEOUT}     40s
+
 ${BLUR_AFTER_CITIZEN_Y}     780
 ${BLUR_AFTER_DOB_Y}         1095
 ${BLUR_AFTER_MOBILE_Y}      1600
