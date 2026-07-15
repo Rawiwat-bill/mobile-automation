@@ -73,7 +73,7 @@ Complete Stage 1 Onboarding
     Capture ID Card Photo
     Wait Until DOPA Information Screen Is Displayed
     Mark Health Checkpoint    DOPA_VISIBLE
-    Sleep    2s
+    Sleep    1s
     Fill DOPA English Names    ${data['dopa']['english']['first_name']}    ${data['dopa']['english']['last_name']}
     ${issue_parts}=    Split String    ${data['dopa']['document']['issue_date']}    -
     ${issue_month}=    Get From Dictionary    ${MONTH_MAP}    ${issue_parts}[1]

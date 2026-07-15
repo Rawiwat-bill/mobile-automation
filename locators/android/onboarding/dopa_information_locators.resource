@@ -1,6 +1,5 @@
 *** Variables ***
 ${DOPA_INFORMATION_SCREEN}                    xpath=//*[contains(@resource-id,"screenDopaInformation")]
-${DOPA_SCROLL_VIEW}                           xpath=//*[contains(@resource-id,"screenDopaInformation_keyboardControllerScrollView")]
 ${DOPA_FIRST_NAME_ENG_INPUT}                  xpath=//*[@text="Enter first name in English"]
 ${DOPA_LAST_NAME_ENG_INPUT}                   xpath=//*[@text="Enter last name in English"]
 ${DOPA_DATE_OF_ISSUE_INPUT}                   xpath=//*[@text="Select date of issue"]

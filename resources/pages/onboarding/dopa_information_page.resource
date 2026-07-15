@@ -27,12 +27,22 @@ Tap DOPA Element Center
     Tap    ${tap_point}
 
 Scroll DOPA Down
-    Execute Adb Shell    input    swipe    540    1200    540    700    200
+    ${width}=    Get Window Width
+    ${height}=    Get Window Height
+    ${cx}=    Evaluate    int(${width} * 0.5)
+    ${sy}=    Evaluate    int(${height} * 0.5)
+    ${ey}=    Evaluate    int(${height} * 0.29)
+    Execute Adb Shell    input    swipe    ${cx}    ${sy}    ${cx}    ${ey}    200
     Sleep    0.5s
 
 Scroll DOPA To Top
+    ${width}=    Get Window Width
+    ${height}=    Get Window Height
+    ${cx}=    Evaluate    int(${width} * 0.5)
+    ${sy}=    Evaluate    int(${height} * 0.21)
+    ${ey}=    Evaluate    int(${height} * 0.75)
     FOR    ${i}    IN RANGE    3
-        Execute Adb Shell    input    swipe    540    500    540    1800    200
+        Execute Adb Shell    input    swipe    ${cx}    ${sy}    ${cx}    ${ey}    200
         Sleep    0.3s
     END
 
@@ -121,7 +131,6 @@ Tap DOPA Next
     ${by_acc}=    Run Keyword And Return Status    Wait Until Page Contains Element    accessibility_id=Next    3s
     IF    ${by_acc} and not ${nav}
         Click Element    accessibility_id=Next
-        Sleep    2s
         ${nav}=    Run Keyword And Return Status    Wait Until Page Does Not Contain Element    ${DOPA_INFORMATION_SCREEN}    10s
         Log    [DOPA] Next via accessibility_id: navigated=${nav}    WARN
     END
@@ -132,7 +141,6 @@ Tap DOPA Next
             ${cx}=    Evaluate    int(${rect['x']} + (${rect['width']} / 2))
             ${cy}=    Evaluate    int(${rect['y']} + (${rect['height']} / 2))
             Execute Adb Shell    input    tap    ${cx}    ${cy}
-            Sleep    2s
             ${nav}=    Run Keyword And Return Status    Wait Until Page Does Not Contain Element    ${DOPA_INFORMATION_SCREEN}    10s
             Log    [DOPA] Next via adb tap: navigated=${nav}    WARN
         END

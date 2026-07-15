@@ -33,6 +33,5 @@ Capture ID Card Photo
         ${cx}=    Evaluate    int($loc['x'] + $sz['width'] / 2)
         ${cy}=    Evaluate    int($loc['y'] + $sz['height'] / 2)
         Execute Adb Shell    input    tap    ${cx}    ${cy}
-        Sleep    5s
         Log    [ID_CARD_CAMERA] Photo captured via adb tap at ${cx},${cy}
     END
