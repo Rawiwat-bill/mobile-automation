@@ -8,10 +8,6 @@ Resource            ../../pages/common_onboarding/tell_us_about_you_page.resourc
 Resource            ../../keywords/health_check_keywords.resource
 
 
-*** Variables ***
-${LOADING_TIMEOUT}      15s
-
-
 *** Keywords ***
 Common Onboarding Flow
     [Documentation]    Complete the common onboarding flow for ETB
@@ -23,14 +19,18 @@ Common Onboarding Flow
     Tap Landing Ready Button
     Allow Android Permission If Visible
     Mark Health Checkpoint    LANDING_COMPLETED
+    
     Wait Until Terms And Conditions Screen Is Displayed
     Mark Health Checkpoint    TERMS_AND_CONDITIONS_VISIBLE
     Scroll Down Terms And Conditions
     Accept Terms And Conditions
     Mark Health Checkpoint    TERMS_AND_CONDITIONS_ACCEPTED
+
     Wait Until Tell Us About You Screen Is Displayed
+    Mark Health Checkpoint    TELL_US_ABOUT_YOU_VISIBLE
     Input Citizen ID    ${citizen_id}
     Select Date Of Birth    ${date_of_birth}
     Input Mobile Number    ${mobile_number}
     Wait Until Fields Are Blurred
     Click Next Button
+    Mark Health Checkpoint    TELL_US_ABOUT_YOU_COMPLETED

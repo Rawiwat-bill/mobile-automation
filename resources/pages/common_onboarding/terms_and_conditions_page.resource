@@ -1,17 +1,14 @@
 *** Settings ***
 Library     AppiumLibrary
+Resource    ../../../resources/app/app_constants.resource
 Resource    ../../../locators/android/common_onboarding/terms_and_conditions_locators.resource
-
-
-*** Variables ***
-${TERMS_AND_CONDITIONS_TIMEOUT}     5s
 
 
 *** Keywords ***
 Wait Until Terms And Conditions Screen Is Displayed
     [Documentation]    Wait until the Terms and Conditions screen is displayed.
-    Wait Until Element Is Visible    ${TERMS_AND_CONDITIONS_TITLE_TEXT}    ${TERMS_AND_CONDITIONS_TIMEOUT}
-    Wait Until Element Is Visible    ${TERMS_AND_CONDITIONS_WEBVIEW}    ${TERMS_AND_CONDITIONS_TIMEOUT}
+    Wait Until Element Is Visible    ${TERMS_AND_CONDITIONS_TITLE_TEXT}    ${NCBD_LOADING_TIMEOUT}
+    Wait Until Element Is Visible    ${TERMS_AND_CONDITIONS_WEBVIEW}    ${NCBD_LOADING_TIMEOUT}
 
 Scroll Down Terms And Conditions
     [Documentation]    Scroll down the Terms and Conditions screen until the last paragraph is visible.

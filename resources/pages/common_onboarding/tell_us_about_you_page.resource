@@ -1,21 +1,17 @@
 *** Settings ***
 Library     String
 Library     AppiumLibrary
-Resource    ../../../locators/android/common_onboarding/tell_us_about_you_locators.resource
 Resource    ../../app/app_constants.resource
 Resource    ../../keywords/dob_stability_keywords.resource
 Resource    ../../keywords/utils/utility_keywords.resource
-
-
-*** Variables ***
-${TELL_US_ABOUT_YOU_TIMEOUT}    5s
+Resource    ../../../locators/android/common_onboarding/tell_us_about_you_locators.resource
 
 
 *** Keywords ***
 Wait Until Tell Us About You Screen Is Displayed
     [Documentation]    Wait until the "Tell us about you" screen is displayed
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_TITLE_TEXT}    timeout=${TELL_US_ABOUT_YOU_TIMEOUT}
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_CITIZEN_ID_CONTAINER}    timeout=${TELL_US_ABOUT_YOU_TIMEOUT}
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_TITLE_TEXT}    timeout=${NCBD_LOADING_TIMEOUT}
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_CITIZEN_ID_CONTAINER}    timeout=${NCBD_LOADING_TIMEOUT}
 
 Wait Until Fields Are Blurred
     [Documentation]    Wait until the fields are blurred (not focused)
@@ -43,7 +39,7 @@ Input Citizen ID
     [Documentation]    Input the citizen ID on the "Tell us about you" screen
     [Arguments]    ${citizen_id}
 
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_CITIZEN_ID_CONTAINER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_CITIZEN_ID_CONTAINER}    ${NCBD_LOADING_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_CID_INPUT}
     Input Text And Hide Keyboard    ${TELL_US_ABOUT_YOU_CID_INPUT}    ${citizen_id}
 
@@ -51,9 +47,9 @@ Select Date Of Birth
     [Documentation]    Input the date of birth on the "Tell us about you" screen
     [Arguments]    ${date_of_birth}
 
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_CONTAINER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_CONTAINER}    ${NCBD_LOADING_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_DOB_INPUT}
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER}    ${NCBD_LOADING_TIMEOUT}
     ${year}    ${month}    ${day}=    Seperate Date Of Birth    ${date_of_birth}
     Swipe DOB Picker    ${year}    ${month}    ${day}
     Click Element    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER_BUTTON_DONE}
@@ -141,20 +137,20 @@ Process Wheel Swipe
     ${start_y}=    Evaluate    ${center_y} + ${offset}
     ${end_y}=    Evaluate    ${center_y} - ${offset}
     IF    '${direction}' == 'down'
-        Swipe    start_x=${center_x}    start_y=${end_y}    end_x=${center_x}    end_y=${start_y}    duration=300
+        Swipe    start_x=${center_x}    start_y=${end_y}    end_x=${center_x}    end_y=${start_y}    duration=400ms
     ELSE
-        Swipe    start_x=${center_x}    start_y=${start_y}    end_x=${center_x}    end_y=${end_y}    duration=300
+        Swipe    start_x=${center_x}    start_y=${start_y}    end_x=${center_x}    end_y=${end_y}    duration=400ms
     END
 
 Input Mobile Number
     [Documentation]    Input the mobile number on the "Tell us about you" screen
     [Arguments]    ${mobile_number}
 
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_CONTAINER}    ${TELL_US_ABOUT_YOU_TIMEOUT}
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_CONTAINER}    ${NCBD_LOADING_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_INPUT}
     Input Text And Hide Keyboard    ${TELL_US_ABOUT_YOU_MOBILE_NUMBER_INPUT}    ${mobile_number}
 
 Click Next Button
     [Documentation]    Click the "Next" button on the "Tell us about you" screen
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_BUTTON_NEXT}    ${TELL_US_ABOUT_YOU_TIMEOUT}
+    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_BUTTON_NEXT}    ${NCBD_LOADING_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_BUTTON_NEXT}
