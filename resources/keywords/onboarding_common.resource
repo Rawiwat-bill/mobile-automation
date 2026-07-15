@@ -73,7 +73,7 @@ Complete Stage 1 Onboarding
     Capture ID Card Photo
     Wait Until DOPA Information Screen Is Displayed
     Mark Health Checkpoint    DOPA_VISIBLE
-    Sleep    1s
+    Wait Until Page Contains Element    xpath=//*[@text="Enter first name in English"]    10s
     Fill DOPA English Names    ${data['dopa']['english']['first_name']}    ${data['dopa']['english']['last_name']}
     ${issue_parts}=    Split String    ${data['dopa']['document']['issue_date']}    -
     ${issue_month}=    Get From Dictionary    ${MONTH_MAP}    ${issue_parts}[1]
@@ -83,7 +83,6 @@ Complete Stage 1 Onboarding
     Set DOPA Date Via Picker    ${DOPA_DATE_OF_EXPIRE_INPUT}    ${expire_parts}[2]    ${expire_month}    ${expire_parts}[0]
     Fill DOPA Laser Code    ${data['dopa']['laser']['part1']}    ${data['dopa']['laser']['part2']}    ${data['dopa']['laser']['part3']}
     Scroll DOPA To Top
-    Sleep    1s
     ${dopa_nav}=    Tap DOPA Next
     Mark Health Checkpoint    DOPA_COMPLETED
     Wait Until OTP Screen Is Displayed

@@ -33,7 +33,6 @@ Scroll DOPA Down
     ${sy}=    Evaluate    int(${height} * 0.5)
     ${ey}=    Evaluate    int(${height} * 0.29)
     Execute Adb Shell    input    swipe    ${cx}    ${sy}    ${cx}    ${ey}    200
-    Sleep    0.5s
 
 Scroll DOPA To Top
     ${width}=    Get Window Width
@@ -43,7 +42,7 @@ Scroll DOPA To Top
     ${ey}=    Evaluate    int(${height} * 0.75)
     FOR    ${i}    IN RANGE    3
         Execute Adb Shell    input    swipe    ${cx}    ${sy}    ${cx}    ${ey}    200
-        Sleep    0.3s
+        Sleep    0.1s
     END
 
 Fill DOPA English Names
@@ -51,7 +50,6 @@ Fill DOPA English Names
     Input Text    ${DOPA_FIRST_NAME_ENG_INPUT}    ${first_name}
     Log    [DOPA] English first name entered: ${first_name}    WARN
     Run Keyword And Ignore Error    Hide Keyboard
-    Sleep    0.5s
     Scroll DOPA Down
     ${last_found}=    Run Keyword And Return Status    Wait Until Page Contains Element    ${DOPA_LAST_NAME_ENG_INPUT}    5s
     IF    ${last_found}
@@ -72,14 +70,13 @@ Set DOPA Date Via Picker
     END
     IF    ${found}
         Click Element    ${field_locator}
-        Sleep    1s
         ${picker_open}=    Run Keyword And Return Status    Wait Until Page Contains Element    ${DOPA_DATE_PICKER_YEAR}    5s
         IF    ${picker_open}
             DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_YEAR}    ${year}    number
             DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_MONTH}    ${month_name}    month
             DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_DAY}    ${day}    number
             Click Element    ${DOPA_DATE_PICKER_CONFIRM}
-            Sleep    0.5s
+            Run Keyword And Return Status    Wait Until Page Does Not Contain Element    ${DOPA_DATE_PICKER_YEAR}    3s
             Log    [DOPA] Date set: ${day} ${month_name} ${year}    WARN
         ELSE
             Log    [DOPA] Date picker did not open    WARN
@@ -124,9 +121,8 @@ DOPA Scroll Picker To Value
 
 Tap DOPA Next
     Run Keyword And Ignore Error    Hide Keyboard
-    Sleep    0.5s
+    Sleep    0.2s
     Scroll DOPA To Top
-    Sleep    0.5s
     ${nav}=    Set Variable    ${FALSE}
     ${by_acc}=    Run Keyword And Return Status    Wait Until Page Contains Element    accessibility_id=Next    3s
     IF    ${by_acc} and not ${nav}
