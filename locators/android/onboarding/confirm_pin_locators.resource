@@ -1,0 +1,15 @@
+*** Variables ***
+${CONFIRM_PIN_TITLE}        xpath=//*[@text="Re-enter PIN to confirm"]
+${CONFIRM_PIN_BACK}         xpath=//*[contains(@resource-id,"screenReEnterPinInput_navBarButtonBack")]
+${CONFIRM_PIN_ERROR}        xpath=//*[contains(@resource-id,"security-error-container")]
+&{CONFIRM_PIN_KEYPAD}
+...    0=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad10")]
+...    1=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad0")]
+...    2=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad1")]
+...    3=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad2")]
+...    4=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad3")]
+...    5=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad4")]
+...    6=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad5")]
+...    7=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad6")]
+...    8=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad7")]
+...    9=xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad8")]

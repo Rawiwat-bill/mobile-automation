@@ -1,0 +1,16 @@
+*** Variables ***
+${SET_PIN_SCREEN_MARKER}    xpath=//*[contains(@resource-id,"screenPinInput_headerText")]
+${SET_PIN_TITLE}            xpath=//*[@text="Set up PIN"]
+${SET_PIN_REMOVE}           xpath=//*[contains(@resource-id,"keyPad11")]
+${SET_PIN_ERROR}            xpath=//*[contains(@resource-id,"security-error-container")]
+&{SET_PIN_KEYPAD}
+...    0=xpath=//*[contains(@resource-id,"keyPad10")]
+...    1=xpath=//*[contains(@resource-id,"keyPad0")]
+...    2=xpath=//*[contains(@resource-id,"keyPad1")]
+...    3=xpath=//*[contains(@resource-id,"keyPad2")]
+...    4=xpath=//*[contains(@resource-id,"keyPad3")]
+...    5=xpath=//*[contains(@resource-id,"keyPad4")]
+...    6=xpath=//*[contains(@resource-id,"keyPad5")]
+...    7=xpath=//*[contains(@resource-id,"keyPad6")]
+...    8=xpath=//*[contains(@resource-id,"keyPad7")]
+...    9=xpath=//*[contains(@resource-id,"keyPad8")]

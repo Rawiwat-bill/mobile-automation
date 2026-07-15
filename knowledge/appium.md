@@ -34,6 +34,7 @@ For gesture components (buttons, pickers), `Input Text` does NOT trigger RN `onP
 - `Clear Text` may not work on RN fields that manage their own state. Use `Tap Profile Element Center` first to focus the field before clearing.
 - `Hide Keyboard` may not dismiss the keyboard on some devices/OS versions
 - Coordinate-based `Tap` from Appium does not trigger RN gesture handlers (buttons, picker scroll). Use `adb shell input tap` for gesture components.
+- Consent Accept button (`accessibility_id=Accept`) has `enabled=true` and `clickable=true` at ALL scroll positions — do not use `Element Should Be Enabled` as a bottom-reaching signal. Use the "I have read and understood" virtualized TextView instead (see `knowledge/patterns/scroll-pattern.md`). The 55-swipe blind loop has been replaced by marker-based detection (max 10 swipes).
 
 ## Internal Project Truth
 

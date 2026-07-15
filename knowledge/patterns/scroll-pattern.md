@@ -30,3 +30,14 @@ Scroll Down Consent Terms
 ## When Not to Use
 - When the app uses a native Android scroll view that responds to Appium swipe gestures.
 - When `mobile: scrollGesture` (Appium 2.0+) is verified to work on the target component.
+
+## State-Based Bottom Detection (Consent Screen)
+
+For consent/terms screens with a scrollable WebView, detect the bottom via a virtualized native `TextView` marker rather than blind swipe count.
+
+**Marker:** "I have read and understood" text appears as `android.widget.TextView` only when scrolled to the bottom (virtualized — absent until rendered into view).
+
+**Production implementation:** `Scroll Down Consent Terms With Big Fling` in `scroll_keywords.resource`.
+**Observed result:** marker appears at swipe 4 (20/20 runs, σ=0.0, max 10 swipes).
+**Stall fallback:** hash-based page-source comparison (2 consecutive unchanged → `CONSENT_SCROLL_STALLED`).
+**Important:** The Accept button's `enabled` attribute is `true` at all scroll positions — it is NOT a valid bottom signal.

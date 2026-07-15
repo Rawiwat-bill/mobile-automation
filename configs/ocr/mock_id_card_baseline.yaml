@@ -1,0 +1,50 @@
+# Machine-readable OCR mock ID card baseline.
+# Authoritative prose: knowledge/ocr_mock_id_card.md
+name: thai_id_card_dopa_baseline
+
+canvas:
+  width: 1280
+  height: 960
+  mode: RGB
+  background: [255, 255, 255]
+
+card:
+  width: 384
+  height: 256
+  aspect_ratio: 1.5
+
+preferred_position:
+  x: 179
+  y: 164
+  bounds:
+    left: 179
+    top: 164
+    right: 563
+    bottom: 420
+
+rollback_position:
+  x: 204
+  y: 204
+  bounds:
+    left: 204
+    top: 204
+    right: 588
+    bottom: 460
+
+resize:
+  method: lanczos
+  crop_padding: auto
+
+expected_success_state:
+  screen: DOPA_INFORMATION
+  classification: DOPA_MATCHED
+
+evidence:
+  preferred:
+    report: reports/investigation/layout_translate_x179_y164/REPORT.md
+  rollback:
+    report: reports/investigation/layout_translate_minus20/REPORT.md
+
+limitations:
+  trials_per_position: 1
+  deterministic_success_proven: false
