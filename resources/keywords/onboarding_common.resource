@@ -82,7 +82,6 @@ Complete Stage 1 Onboarding
     ${expire_month}=    Get From Dictionary    ${MONTH_MAP}    ${expire_parts}[1]
     Set DOPA Date Via Picker    ${DOPA_DATE_OF_EXPIRE_INPUT}    ${expire_parts}[2]    ${expire_month}    ${expire_parts}[0]
     Fill DOPA Laser Code    ${data['dopa']['laser']['part1']}    ${data['dopa']['laser']['part2']}    ${data['dopa']['laser']['part3']}
-    Scroll DOPA To Top
     ${dopa_nav}=    Tap DOPA Next
     Mark Health Checkpoint    DOPA_COMPLETED
     Wait Until OTP Screen Is Displayed

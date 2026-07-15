@@ -120,9 +120,7 @@ DOPA Scroll Picker To Value
     END
 
 Tap DOPA Next
-    Run Keyword And Ignore Error    Hide Keyboard
-    Sleep    0.2s
-    Scroll DOPA To Top
+    Execute Adb Shell    input    keyevent    111
     ${nav}=    Set Variable    ${FALSE}
     ${by_acc}=    Run Keyword And Return Status    Wait Until Page Contains Element    accessibility_id=Next    3s
     IF    ${by_acc} and not ${nav}
