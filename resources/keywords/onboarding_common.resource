@@ -96,3 +96,7 @@ Complete Stage 1 Onboarding
     Mark Health Checkpoint    CONFIRM_PIN_VISIBLE
     Enter Confirm PIN Using Custom Keypad    ${data['pin']['value']}
     Mark Health Checkpoint    CONFIRM_PIN_ENTERED
+
+Accept Terms And Conditions
+    Wait Until Consent Screen Is Displayed
+    Tap Consent Accept Button
