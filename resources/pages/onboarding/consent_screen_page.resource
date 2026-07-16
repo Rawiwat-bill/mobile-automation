@@ -7,7 +7,7 @@ Resource    ../../../locators/android/onboarding/consent_screen_locators.resourc
 *** Variables ***
 ${CONSENT_TIMEOUT}    10s
 ${CONSENT_END_TEXT}    I have read and understood
-${CONSENT_MAX_SWIPES}    10
+${CONSENT_MAX_SWIPES}    55
 
 
 *** Keywords ***
