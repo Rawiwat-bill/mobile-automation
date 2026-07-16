@@ -1,0 +1,4 @@
+*** Variables ***
+${CHECK_PDPA_CLAUSE_NO_6_TITLE_TEXT}                xpath=//android.widget.TextView[@content-desc="Personal data consent"]
+${CHECK_PDPA_CLAUSE_NO_6_LAST_PARAGRAPH_TEXT}       xpath=android.widget.TextView[@content-desc="content-desc=" I hereby confirm that I have read and understood the details specified in the Privacy Notice and the Request Letter thoroughly. In case I have previously given my consent to the Bank, the consent granted thereunder will be additional to the one previously received by the Bank.\n\n I, having read and understood the content of this Written Consent, hereby give consent to the Bank to collect, use and disclose my personal data in accordance with this Written Consent and affix my signature as evidence hereof.""]
+${CHECK_PDPA_CLAUSE_NO_6_ACCEPT_BUTTON}             xpath=//android.widget.Button[@content-desc="Accept"]
