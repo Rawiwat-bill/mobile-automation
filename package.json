@@ -1,12 +1,17 @@
 {
   "dependencies": {
+    "appium": "^3.5.2",
     "opencode-ponytail": "^4.7.3"
   },
   "devDependencies": {
-    "@dietrichgebert/ponytail": "^4.8.4"
+    "@dietrichgebert/ponytail": "^4.8.4",
+    "appium-inspector-plugin": "^2026.5.1",
+    "appium-uiautomator2-driver": "^8.1.0",
+    "appium-xcuitest-driver": "^11.17.7"
   },
   "scripts": {
     "appium": "appium --use-plugins=inspector --allow-cors --relaxed-security",
-    "etb:physical": "robot -v DEVICE_NAME:R5CWC1AXKSZ -d reports tests/android/etb/etb_flow.robot"
+    "etb:physical": ".venv/bin/robot -v DEVICE_NAME:59b7aad6 -d reports tests/android/etb/etb_flow.robot",
+    "rct:physical": ".venv/bin/robot -v DEVICE_NAME:5XMVUCROZTYPW8GA -d reports tests/android/rct/rct_flow.robot"
   }
 }

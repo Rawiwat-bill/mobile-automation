@@ -44,14 +44,18 @@ Input Citizen ID
     Input Text And Hide Keyboard    ${TELL_US_ABOUT_YOU_CID_INPUT}    ${citizen_id}
 
 Select Date Of Birth
-    [Documentation]    Input the date of birth on the "Tell us about you" screen
+    [Documentation]    Input the date of birth on the "Tell us about you" screen.
+    ...    Uses verified adb swipes with tiered distances for speed and accuracy.
     [Arguments]    ${date_of_birth}
 
     Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_CONTAINER}    ${NCBD_LOADING_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_DOB_INPUT}
     Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER}    ${NCBD_LOADING_TIMEOUT}
     ${year}    ${month}    ${day}=    Seperate Date Of Birth    ${date_of_birth}
-    Swipe DOB Picker    ${year}    ${month}    ${day}
+    # Select in order: Year → Month → Day (year changes can shift day range)
+    Select DOB Wheel Value    ${TELL_US_ABOUT_YOU_SEEKBAR_YEAR}    ${year}    number
+    Select DOB Wheel Value    ${TELL_US_ABOUT_YOU_SEEKBAR_MONTH}    ${month}    month
+    Select DOB Wheel Value    ${TELL_US_ABOUT_YOU_SEEKBAR_DAY}    ${day}    number
     Click Element    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER_BUTTON_DONE}
 
 Seperate Date Of Birth
@@ -64,83 +68,84 @@ Seperate Date Of Birth
     ${year_int}=    Convert To Integer    ${year}
     RETURN    ${year_int}    ${month_int}    ${day_int}
 
-Swipe DOB Picker
-    [Documentation]    Swipe the DOB picker to the target dob.
-    [Arguments]    ${target_year}    ${target_month}    ${target_day}
+Select DOB Wheel Value
+    [Documentation]    Swipe a DOB picker wheel to the target value with verification.
+    ...    Uses tiered swipe distances (big/coarse/fine) based on distance from target.
+    [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}
 
-    # Get current values from the seekbars
-    ${seekbar_year}=    Get Element Attribute
-    ...    ${TELL_US_ABOUT_YOU_SEEKBAR_YEAR}
-    ...    content-desc
-    ${seekbar_month}=    Get Element Attribute
-    ...    ${TELL_US_ABOUT_YOU_SEEKBAR_MONTH}
-    ...    content-desc
-    ${seekbar_day}=    Get Element Attribute
-    ...    ${TELL_US_ABOUT_YOU_SEEKBAR_DAY}
-    ...    content-desc
-
-    # Evaluate seperate current year
-    ${current_year}=    Evaluate
-    ...    int('${seekbar_year}'.split(',')[-1].strip())
-
-    # Evaluate seperate current month
-    ${month_name}=    Evaluate
-    ...    '${seekbar_month}'.split(',')[-1].strip()
-    ${current_month}=    Get From Dictionary    ${MONTH_INDEXES}    ${month_name}
-
-    # Evaluate seperate current day
-    ${current_day}=    Evaluate
-    ...    int('${seekbar_day}'.split(',')[-1].strip())
-
-    # Evaluate steps to move for year, month, and day
-    ${steps_year}=    Evaluate    abs(${current_year} - int(${target_year}))
-    ${steps_month}=    Evaluate    abs(${current_month} - int(${target_month}))
-    ${steps_day}=    Evaluate    abs(${current_day} - int(${target_day}))
-
-    # Get the rects of the seekbars
-    ${rect_year}=    Get Element Rect    ${TELL_US_ABOUT_YOU_SEEKBAR_YEAR}
-    ${rect_month}=    Get Element Rect    ${TELL_US_ABOUT_YOU_SEEKBAR_MONTH}
-    ${rect_day}=    Get Element Rect    ${TELL_US_ABOUT_YOU_SEEKBAR_DAY}
-
-    # Determine the swipe direction for year, month, and day
-    ${year_dir}=    Set Variable If    ${current_year} > int(${target_year})    down    up
-    ${month_dir}=    Set Variable If    ${current_month} > int(${target_month})    down    up
-    ${day_dir}=    Set Variable If    ${current_day} > int(${target_day})    down    up
-
-    # Swipe the year wheel to the target value
-    FOR    ${i}    IN RANGE    ${steps_year}
-        Process Wheel Swipe    ${rect_year}    ${year_dir}
-    END
-    Log    [PERF] DOB Year Picker: current=${current_year}, target=${target_year}, steps=${steps_year}
-
-    # Swipe the month wheel to the target value
-    FOR    ${i}    IN RANGE    ${steps_month}
-        Process Wheel Swipe    ${rect_month}    ${month_dir}
-    END
-    Log    [PERF] DOB Month Picker: current=${current_month}, target=${target_month}, steps=${steps_month}
-
-    # Swipe the day wheel to the target value
-    FOR    ${i}    IN RANGE    ${steps_day}
-        Process Wheel Swipe    ${rect_day}    ${day_dir}
-    END
-    Log    [PERF] DOB Day Picker: current=${current_day}, target=${target_day}, steps=${steps_day}
-
-Process Wheel Swipe
-    [Documentation]    Swipe the DOB wheel in the specified direction.
-    [Arguments]    ${rect}    ${direction}
-
+    Wait Until Element Is Visible    ${picker_locator}    ${NCBD_LOADING_TIMEOUT}
+    # Compute geometry once — wheel bounds don't change while picker is open
+    ${rect}=    Get Element Rect    ${picker_locator}
     ${center_x}=    Evaluate    int(${rect['x']} + ${rect['width']} / 2)
-    ${center_y}=    Evaluate    int(${rect['y']} + ${rect['height']} / 2)
+    ${fine_top_y}=    Evaluate    int(${rect['y']} + ${rect['height']} * ${DOB_FINE_END_RATIO})
+    ${fine_bottom_y}=    Evaluate    int(${rect['y']} + ${rect['height']} * ${DOB_FINE_START_RATIO})
+    ${coarse_top_y}=    Evaluate    int(${rect['y']} + ${rect['height']} * ${DOB_COARSE_END_RATIO})
+    ${coarse_bottom_y}=    Evaluate    int(${rect['y']} + ${rect['height']} * ${DOB_COARSE_START_RATIO})
+    ${big_top_y}=    Evaluate    int(${rect['y']} + ${rect['height']} * 0.15)
+    ${big_bottom_y}=    Evaluate    int(${rect['y']} + ${rect['height']} * 0.85)
 
-    ${offset}=    Evaluate    int(${rect['height']} * 0.10)
-
-    ${start_y}=    Evaluate    ${center_y} + ${offset}
-    ${end_y}=    Evaluate    ${center_y} - ${offset}
-    IF    '${direction}' == 'down'
-        Swipe    start_x=${center_x}    start_y=${end_y}    end_x=${center_x}    end_y=${start_y}    duration=400ms
-    ELSE
-        Swipe    start_x=${center_x}    start_y=${start_y}    end_x=${center_x}    end_y=${end_y}    duration=400ms
+    FOR    ${index}    IN RANGE    40
+        # Wait for wheel to settle then read current value
+        ${current_value}=    Read DOB Wheel Value    ${picker_locator}
+        IF    '${current_value}' == '${target_value}'
+            Log    [PERF] DOB ${value_kind} reached target=${target_value} in ${index} swipes
+            RETURN
+        END
+        # Convert to numeric index for comparison
+        IF    '${value_kind}' == 'month'
+            ${current_index}=    Get From Dictionary    ${MONTH_INDEXES}    ${current_value}
+            ${target_index}=    Convert To Integer    ${target_value}
+        ELSE
+            ${current_index}=    Convert To Integer    ${current_value}
+            ${target_index}=    Convert To Integer    ${target_value}
+        END
+        ${diff}=    Evaluate    abs(${current_index} - ${target_index})
+        IF    ${diff} == 0
+            Log    [PERF] DOB ${value_kind} reached target=${target_value} in ${index} swipes (index match)
+            RETURN
+        END
+        ${direction}=    Set Variable If    ${current_index} < ${target_index}    up    down
+        # Tiered swipe: big (>5 steps), coarse (3-5), fine (1-2)
+        IF    ${diff} > 5
+            ${top_y}=    Set Variable    ${big_top_y}
+            ${bottom_y}=    Set Variable    ${big_bottom_y}
+            ${duration}=    Set Variable    50
+        ELSE IF    ${diff} > 2
+            ${top_y}=    Set Variable    ${coarse_top_y}
+            ${bottom_y}=    Set Variable    ${coarse_bottom_y}
+            ${duration}=    Set Variable    80
+        ELSE
+            ${top_y}=    Set Variable    ${fine_top_y}
+            ${bottom_y}=    Set Variable    ${fine_bottom_y}
+            ${duration}=    Set Variable    120
+        END
+        IF    '${direction}' == 'up'
+            Execute Adb Shell    input    swipe    ${center_x}    ${bottom_y}    ${center_x}    ${top_y}    ${duration}
+        ELSE
+            Execute Adb Shell    input    swipe    ${center_x}    ${top_y}    ${center_x}    ${bottom_y}    ${duration}
+        END
+        Sleep    ${DOB_SETTLE_TIME}
     END
+    Fail    Could not select DOB ${value_kind} value '${target_value}' after 40 attempts.
+
+Read DOB Wheel Value
+    [Documentation]    Read current selected value from a DOB picker wheel via content-desc.
+    ...    Polls twice to confirm the wheel has settled (same value on consecutive reads).
+    [Arguments]    ${picker_locator}
+
+    ${desc}=    Get Element Attribute    ${picker_locator}    content-desc
+    ${value}=    Evaluate    '${desc}'.split(',')[-1].strip() if '${desc}' else ''
+    # Quick stability poll — confirm value hasn't changed
+    Sleep    0.05s
+    ${desc2}=    Get Element Attribute    ${picker_locator}    content-desc
+    ${value2}=    Evaluate    '${desc2}'.split(',')[-1].strip() if '${desc2}' else ''
+    IF    '${value}' != '${value2}'
+        # Wheel still moving — wait longer and re-read
+        Sleep    ${DOB_SETTLE_TIME}
+        ${desc3}=    Get Element Attribute    ${picker_locator}    content-desc
+        ${value}=    Evaluate    '${desc3}'.split(',')[-1].strip() if '${desc3}' else ''
+    END
+    RETURN    ${value}
 
 Input Mobile Number
     [Documentation]    Input the mobile number on the "Tell us about you" screen

@@ -24,6 +24,14 @@ Input OTP
     Click Element    ${FIELD_OTP0}
     Enter OTP By Keycodes    ${otp}
 
+Input OTP Fast
+    [Documentation]    Input the OTP into the OTP input field.]
+    [Arguments]    ${otp}=999999
+
+    Wait Until Element Is Visible    ${FIELD_OTP0}    ${NCBD_LOADING_TIMEOUT}
+    Input Text    ${MOBILE_OTP_INPUT}    ${otp}
+    Enter OTP By Keycodes    ${otp}
+
 Enter OTP By Keycodes
     [Documentation]    Enter the OTP by sending keycodes for each digit.
     [Arguments]    ${otp}

@@ -1,0 +1,19 @@
+# EXAMPLE ONLY - non-real placeholder values.
+# Copy this file to rct.local.yaml (gitignored) and replace with seeded
+# test data. Never commit real PINs or customer data.
+profile:
+  citizen_id: "1100200149374"
+  date_of_birth: "1985-09-19"
+  mobile_number: "0891193034"
+  pin: "123123"
+  laser_code: "JC3-1234567-89"
+
+reactivate:
+  pdpa_clause_6: "ACCEPT"
+
+environment:
+  flow_type: "RCT"
+  language: "EN"
+
+expected:
+  result: "REACTIVATED"

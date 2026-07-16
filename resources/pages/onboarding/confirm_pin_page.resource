@@ -13,6 +13,10 @@ Wait Until Confirm PIN Screen Is Displayed
     Wait Until Page Contains Element    ${CONFIRM_PIN_TITLE}    ${CONFIRM_PIN_TIMEOUT}
     Log    [PIN] Confirm PIN screen visible
 
+Wait Until Enter PIN Screen Is Displayed
+    Wait Until Page Contains Element    ${ENTER_PIN_TITLE}    ${CONFIRM_PIN_TIMEOUT}
+    Log    [PIN] Enter PIN screen visible
+
 Enter Confirm PIN Using Custom Keypad
     [Arguments]    ${pin}
     ${digits}=    Evaluate    list($pin)

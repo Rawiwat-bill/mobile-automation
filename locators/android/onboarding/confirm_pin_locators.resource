@@ -1,5 +1,6 @@
 *** Variables ***
 ${CONFIRM_PIN_TITLE}        xpath=//*[@text="Re-enter PIN to confirm"]
+${ENTER_PIN_TITLE}          xpath=//*[@text="Enter PIN"]
 ${CONFIRM_PIN_BACK}         xpath=//*[contains(@resource-id,"screenReEnterPinInput_navBarButtonBack")]
 ${CONFIRM_PIN_ERROR}        xpath=//*[contains(@resource-id,"security-error-container")]
 &{CONFIRM_PIN_KEYPAD}

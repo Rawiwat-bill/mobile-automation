@@ -3,7 +3,6 @@ Library     AppiumLibrary
 Resource    ../../../resources/app/app_constants.resource
 Resource    ../../../locators/android/common_onboarding/terms_and_conditions_locators.resource
 
-
 *** Keywords ***
 Wait Until Terms And Conditions Screen Is Displayed
     [Documentation]    Wait until the Terms and Conditions screen is displayed.
@@ -19,7 +18,13 @@ Scroll Down Terms And Conditions
         Swipe By Percent    50    75    50    10    100ms
         Swipe By Percent    50    75    50    10    100ms
         Swipe By Percent    50    75    50    10    100ms
-
+        Swipe By Percent    50    75    50    10    100ms
+        Swipe By Percent    50    75    50    10    100ms
+        Swipe By Percent    50    75    50    10    100ms
+        Swipe By Percent    50    75    50    10    100ms
+        Swipe By Percent    50    75    50    10    100ms
+        Swipe By Percent    50    75    50    10    100ms
+        
         ${found}=    Run Keyword And Return Status
         ...    Page Should Contain Element
         ...    ${TERMS_AND_CONDITIONS_LAST_PARAGRAPH_TEXT}
