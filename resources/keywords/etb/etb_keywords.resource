@@ -7,6 +7,7 @@ Resource            ../../pages/etb/check_dopa_fill_laser_code_page.resource
 Resource            ../../pages/etb/mobile_otp_page.resource
 Resource            ../../pages/etb/check_pdpa_clause_no_6_page.resource
 Resource            ../../pages/etb/intro_face_scan_page.resource
+Resource            ../../pages/etb/setup_pin_page.resource
 
 
 *** Keywords ***
@@ -45,6 +46,17 @@ Complete ETB Onboarding
         Click Element    ${INTRO_FACE_SCAN_NEXT_BUTTON}
         Allow Android Permission If Visible
 
+        # Setup Pin Screen
+        Wait Until Setup Pin Screen Is Displayed
+        Mark Health Checkpoint    SETUP_PIN_VISIBLE
+        Set Up PIN    ${pin}
+        Set Up PIN    ${pin}    re_pin=${True}
+        Wait Until Page Does Not Contain Element    ${RE_ENTER_PIN_TITLE_TEXT}    ${NCBD_LOADING_TIMEOUT}
+        Wait Until Page Does Not Contain Element    ${LAYER_LOADING}    ${NCBD_LOADING_TIMEOUT}
+        Click Element    ${BUTTON_CONFIRM}
+        Wait Until Element Is Visible    ${LABEL_ETB_FINISHED}    ${NCBD_LOADING_TIMEOUT}
+        Click Element    ${BUTTON_LETGO}
+
         RETURN
     END
 
@@ -54,4 +66,12 @@ Complete ETB Onboarding
     Click Element    ${INTRO_FACE_SCAN_NEXT_BUTTON}
     Allow Android Permission If Visible
 
-    # Pin Setup Screen
+    # Setup Pin Screen
+    Wait Until Setup Pin Screen Is Displayed
+    Mark Health Checkpoint    SETUP_PIN_VISIBLE
+    Set Up PIN    ${pin}
+    Set Up PIN    ${pin}    re_pin=${True}
+    Wait Until Page Does Not Contain Element    ${RE_ENTER_PIN_TITLE_TEXT}    ${NCBD_LOADING_TIMEOUT}
+    Wait Until Page Does Not Contain Element    ${LAYER_LOADING}    ${NCBD_LOADING_TIMEOUT}
+    Wait Until Element Is Visible    ${LABEL_ETB_FINISHED}    ${NCBD_LOADING_TIMEOUT}
+    Click Element    ${BUTTON_LETGO}
