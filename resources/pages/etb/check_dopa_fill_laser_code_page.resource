@@ -1,7 +1,7 @@
 *** Settings ***
 Library     String
 Library     AppiumLibrary
-Resource    ../../../locators/android/etb/check_dopa_fill_laser_code_locator.resource
+Resource    ../../../locators/android/etb/check_dopa_fill_laser_code_locators.resource
 Resource    ../../../resources/app/app_constants.resource
 
 
@@ -24,5 +24,3 @@ Input Laser Code
     END
 
     Hide Keyboard
-    Wait Until Element Is Visible    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}    ${NCBD_LOADING_TIMEOUT}
-    Click Element    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}
