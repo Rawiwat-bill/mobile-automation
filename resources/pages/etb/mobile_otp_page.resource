@@ -5,9 +5,9 @@ Library             Collections
 Library             String
 Library             AppiumLibrary
 Resource            ../../../resources/app/app_constants.resource
+Resource            ../../../resources/pages/etb/check_pdpa_clause_no_6_page.resource
+Resource            ../../../resources/pages/etb/intro_face_scan_page.resource
 Resource            ../../../locators/android/etb/mobile_otp_locators.resource
-Resource            ../../../locators/android/etb/check_pdpa_clause_no_6_locators.resource
-Resource            ../../../locators/android/etb/intro_face_scan_locators.resource
 
 
 *** Keywords ***
@@ -17,7 +17,7 @@ Wait Until Mobile OTP Screen Is Displayed
     Wait Until Element Is Visible    ${MOBILE_OTP_INPUT}    ${NCBD_LOADING_TIMEOUT}
 
 Input OTP
-    [Documentation]    Input the OTP into the OTP input field.]
+    [Documentation]    Input the OTP into the OTP input field.
     [Arguments]    ${otp}
 
     Wait Until Element Is Visible    ${FIELD_OTP0}    ${NCBD_LOADING_TIMEOUT}
@@ -36,18 +36,27 @@ Enter OTP By Keycodes
 
 Handle Post OTP Transition
     [Documentation]    Accept the optional PDPA screen after OTP, otherwise wait for face scan.
+    ${start_time}=    Evaluate    __import__('time').perf_counter()
     ${post_otp_screen}=    Wait Until Keyword Succeeds    ${NCBD_LOADING_TIMEOUT}    1s    Detect Post OTP Screen
-    IF    '${post_otp_screen}' == 'CHECK_PDPA_CLAUSE_NO_6'
-        Wait Until Element Is Visible    ${CHECK_PDPA_CLAUSE_NO_6_TITLE_TEXT}    ${NCBD_LOADING_TIMEOUT}
-    ELSE IF    '${post_otp_screen}' == 'INTRO_FACE_SCAN'
-        Wait Until Element Is Visible    ${INTRO_FACE_SCAN_TITLE_TEXT}    ${NCBD_LOADING_TIMEOUT}
-    END
+    ${elapsed_seconds}=    Evaluate    round(__import__('time').perf_counter() - $start_time, 3)
+    Log To Console    Handle Post OTP Transition took ${elapsed_seconds}s -> ${post_otp_screen}
+    Log    Handle Post OTP Transition took ${elapsed_seconds}s -> ${post_otp_screen}
+    RETURN    ${post_otp_screen}
 
 Detect Post OTP Screen
     [Documentation]    Detect whether the next screen is PDPA consent or face scan.
+    VAR    ${probe_timeout}    2s
 
     ${pdpa_visible}=    Run Keyword And Return Status
     ...    Wait Until Element Is Visible
     ...    ${CHECK_PDPA_CLAUSE_NO_6_TITLE_TEXT}
-    ...    ${NCBD_LOADING_TIMEOUT}
+    ...    ${probe_timeout}
     IF    ${pdpa_visible}    RETURN    CHECK_PDPA_CLAUSE_NO_6
+
+    ${intro_face_visible}=    Run Keyword And Return Status
+    ...    Wait Until Element Is Visible
+    ...    ${INTRO_FACE_SCAN_TITLE_TEXT}
+    ...    ${probe_timeout}
+    IF    ${intro_face_visible}    RETURN    INTRO_FACE_SCAN
+
+    Fail    Post OTP screen not ready yet

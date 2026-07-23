@@ -6,7 +6,7 @@ Resource    ../../../locators/android/etb/check_pdpa_clause_no_6_locators.resour
 
 *** Keywords ***
 Wait Until Check PDPA Clause No6 Is Displayed
-    [Documentation]    Wait until the Check PDPA Clause No6 screen is displayed.]
+    [Documentation]    Wait until the Check PDPA Clause No6 screen is displayed.
     Wait Until Element Is Visible    ${CHECK_PDPA_CLAUSE_NO_6_TITLE_TEXT}    ${NCBD_LOADING_TIMEOUT}
 
 Scroll Down PDPA Clause No6
