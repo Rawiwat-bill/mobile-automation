@@ -21,8 +21,12 @@ apps/android/*.apk
 
 # Local sensitive test data
 *.local.yaml
+*.local.yaml.bak
 *.secret.yaml
 .env
+
+# Tool config
+opencode.json
 
 # Logs
 *.log

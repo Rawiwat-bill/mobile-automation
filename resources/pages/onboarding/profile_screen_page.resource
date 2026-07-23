@@ -204,7 +204,13 @@ Select DOB Picker Value
     Wait Until Element Is Visible    ${picker_locator}    ${DOB_PICKER_TIMEOUT}
     FOR    ${index}    IN RANGE    25
         ${current_value}=    Read DOB Picker Visible Value    ${picker_locator}
-        IF    '${current_value}' == '${target_value}'
+        # ponytail: numbers render without leading zero ('7' != '07' as strings); compare as integers for number kind
+        IF    '${value_kind}' == 'month'
+            ${matched}=    Run Keyword And Return Status    Should Be Equal As Strings    ${current_value}    ${target_value}
+        ELSE
+            ${matched}=    Run Keyword And Return Status    Should Be Equal As Integers    ${current_value}    ${target_value}
+        END
+        IF    ${matched}
             RETURN
         END
 

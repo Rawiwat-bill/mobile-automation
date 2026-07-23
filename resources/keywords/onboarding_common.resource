@@ -7,6 +7,10 @@ Resource    ../pages/onboarding/pdpa_consent_page.resource
 Resource    ../pages/onboarding/sign_up_page.resource
 Resource    ../pages/onboarding/scan_card_intro_page.resource
 Resource    ../pages/onboarding/id_card_camera_capture_page.resource
+Resource    ../pages/onboarding/dopa_information_page.resource
+Resource    ../pages/onboarding/verify_mobile_otp_page.resource
+Resource    ../pages/onboarding/set_pin_page.resource
+Resource    ../pages/onboarding/confirm_pin_page.resource
 Resource    ../keywords/health_check_keywords.resource
 
 *** Keywords ***
@@ -57,3 +61,42 @@ Complete Common Onboarding
     Navigate Virtual Camera To Poster
     Tap Take Photo
     Mark Health Checkpoint    ID_CARD_PHOTO_CAPTURED
+
+Complete Stage 1 Onboarding
+    [Documentation]    Full Stage 1 flow: Landing through Confirm PIN.
+    ...                All values come from the testdata dictionary argument.
+    [Arguments]    ${data}
+    Complete Common Onboarding
+    ...    ${data['profile']['citizen_id']}
+    ...    ${data['profile']['date_of_birth']}
+    ...    ${data['profile']['mobile_number']}
+    Capture ID Card Photo
+    Wait Until DOPA Information Screen Is Displayed
+    Mark Health Checkpoint    DOPA_VISIBLE
+    Wait Until Page Contains Element    xpath=//*[@text="Enter first name in English"]    10s
+    Fill DOPA English Names    ${data['dopa']['english']['first_name']}    ${data['dopa']['english']['last_name']}
+    ${issue_parts}=    Split String    ${data['dopa']['document']['issue_date']}    -
+    ${issue_month}=    Get From Dictionary    ${MONTH_MAP}    ${issue_parts}[1]
+    Set DOPA Date Via Picker    ${DOPA_DATE_OF_ISSUE_INPUT}    ${issue_parts}[2]    ${issue_month}    ${issue_parts}[0]
+    ${expire_parts}=    Split String    ${data['dopa']['document']['expiry_date']}    -
+    ${expire_month}=    Get From Dictionary    ${MONTH_MAP}    ${expire_parts}[1]
+    Set DOPA Date Via Picker    ${DOPA_DATE_OF_EXPIRE_INPUT}    ${expire_parts}[2]    ${expire_month}    ${expire_parts}[0]
+    Fill DOPA Laser Code    ${data['dopa']['laser']['part1']}    ${data['dopa']['laser']['part2']}    ${data['dopa']['laser']['part3']}
+    ${dopa_nav}=    Tap DOPA Next
+    Mark Health Checkpoint    DOPA_COMPLETED
+    Wait Until OTP Screen Is Displayed
+    Mark Health Checkpoint    OTP_VISIBLE
+    Enter OTP Code    ${data['otp']['code']}
+    Mark Health Checkpoint    OTP_ENTERED
+    Wait Until Set PIN Screen Is Displayed
+    Mark Health Checkpoint    SET_PIN_VISIBLE
+    Enter PIN Using Custom Keypad    ${data['pin']['value']}
+    Mark Health Checkpoint    SET_PIN_ENTERED
+    Wait Until Confirm PIN Screen Is Displayed
+    Mark Health Checkpoint    CONFIRM_PIN_VISIBLE
+    Enter Confirm PIN Using Custom Keypad    ${data['pin']['value']}
+    Mark Health Checkpoint    CONFIRM_PIN_ENTERED
+
+Accept Terms And Conditions
+    Wait Until Consent Screen Is Displayed
+    Tap Consent Accept Button
