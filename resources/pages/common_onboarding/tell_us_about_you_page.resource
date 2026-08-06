@@ -4,6 +4,7 @@ Library     AppiumLibrary
 Resource    ../../app/app_constants.resource
 Resource    ../../keywords/dob_stability_keywords.resource
 Resource    ../../keywords/utils/utility_keywords.resource
+Resource    ../onboarding/profile_screen_page.resource
 Resource    ../../../locators/android/common_onboarding/tell_us_about_you_locators.resource
 
 
@@ -46,101 +47,13 @@ Input Citizen ID
 Select Date Of Birth
     [Documentation]    Input the date of birth on the "Tell us about you" screen
     [Arguments]    ${date_of_birth}
+    profile_screen_page.Input Date Of Birth    ${date_of_birth}
+    Capture Date Of Birth Selection State
 
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_CONTAINER}    ${NCBD_LOADING_TIMEOUT}
-    Click Element    ${TELL_US_ABOUT_YOU_DOB_INPUT}
-    Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER}    ${NCBD_LOADING_TIMEOUT}
-    ${year}    ${month}    ${day}=    Seperate Date Of Birth    ${date_of_birth}
-    Swipe DOB Picker    ${year}    ${month}    ${day}
-    Click Element    ${TELL_US_ABOUT_YOU_DOB_DATE_PICKER_BUTTON_DONE}
-
-Seperate Date Of Birth
-    [Documentation]    Map the date of birth to day, month, and year.
-    [Arguments]    ${date_of_birth}
-
-    ${day}    ${month}    ${year}=    Split String    ${date_of_birth}    -
-    ${day_int}=    Convert To Integer    ${day}
-    ${month_int}=    Convert To Integer    ${month}
-    ${year_int}=    Convert To Integer    ${year}
-    RETURN    ${year_int}    ${month_int}    ${day_int}
-
-Swipe DOB Picker
-    [Documentation]    Swipe the DOB picker to the target dob.
-    [Arguments]    ${target_year}    ${target_month}    ${target_day}
-
-    # Get current values from the seekbars
-    ${seekbar_year}=    Get Element Attribute
-    ...    ${TELL_US_ABOUT_YOU_SEEKBAR_YEAR}
-    ...    content-desc
-    ${seekbar_month}=    Get Element Attribute
-    ...    ${TELL_US_ABOUT_YOU_SEEKBAR_MONTH}
-    ...    content-desc
-    ${seekbar_day}=    Get Element Attribute
-    ...    ${TELL_US_ABOUT_YOU_SEEKBAR_DAY}
-    ...    content-desc
-
-    # Evaluate seperate current year
-    ${current_year}=    Evaluate
-    ...    int('${seekbar_year}'.split(',')[-1].strip())
-
-    # Evaluate seperate current month
-    ${month_name}=    Evaluate
-    ...    '${seekbar_month}'.split(',')[-1].strip()
-    ${current_month}=    Get From Dictionary    ${MONTH_INDEXES}    ${month_name}
-
-    # Evaluate seperate current day
-    ${current_day}=    Evaluate
-    ...    int('${seekbar_day}'.split(',')[-1].strip())
-
-    # Evaluate steps to move for year, month, and day
-    ${steps_year}=    Evaluate    abs(${current_year} - int(${target_year}))
-    ${steps_month}=    Evaluate    abs(${current_month} - int(${target_month}))
-    ${steps_day}=    Evaluate    abs(${current_day} - int(${target_day}))
-
-    # Get the rects of the seekbars
-    ${rect_year}=    Get Element Rect    ${TELL_US_ABOUT_YOU_SEEKBAR_YEAR}
-    ${rect_month}=    Get Element Rect    ${TELL_US_ABOUT_YOU_SEEKBAR_MONTH}
-    ${rect_day}=    Get Element Rect    ${TELL_US_ABOUT_YOU_SEEKBAR_DAY}
-
-    # Determine the swipe direction for year, month, and day
-    ${year_dir}=    Set Variable If    ${current_year} > int(${target_year})    down    up
-    ${month_dir}=    Set Variable If    ${current_month} > int(${target_month})    down    up
-    ${day_dir}=    Set Variable If    ${current_day} > int(${target_day})    down    up
-
-    # Swipe the year wheel to the target value
-    FOR    ${i}    IN RANGE    ${steps_year}
-        Process Wheel Swipe    ${rect_year}    ${year_dir}
-    END
-    Log    [PERF] DOB Year Picker: current=${current_year}, target=${target_year}, steps=${steps_year}
-
-    # Swipe the month wheel to the target value
-    FOR    ${i}    IN RANGE    ${steps_month}
-        Process Wheel Swipe    ${rect_month}    ${month_dir}
-    END
-    Log    [PERF] DOB Month Picker: current=${current_month}, target=${target_month}, steps=${steps_month}
-
-    # Swipe the day wheel to the target value
-    FOR    ${i}    IN RANGE    ${steps_day}
-        Process Wheel Swipe    ${rect_day}    ${day_dir}
-    END
-    Log    [PERF] DOB Day Picker: current=${current_day}, target=${target_day}, steps=${steps_day}
-
-Process Wheel Swipe
-    [Documentation]    Swipe the DOB wheel in the specified direction.
-    [Arguments]    ${rect}    ${direction}
-
-    ${center_x}=    Evaluate    int(${rect['x']} + ${rect['width']} / 2)
-    ${center_y}=    Evaluate    int(${rect['y']} + ${rect['height']} / 2)
-
-    ${offset}=    Evaluate    int(${rect['height']} * 0.10)
-
-    ${start_y}=    Evaluate    ${center_y} + ${offset}
-    ${end_y}=    Evaluate    ${center_y} - ${offset}
-    IF    '${direction}' == 'down'
-        Swipe    start_x=${center_x}    start_y=${end_y}    end_x=${center_x}    end_y=${start_y}    duration=400ms
-    ELSE
-        Swipe    start_x=${center_x}    start_y=${start_y}    end_x=${center_x}    end_y=${end_y}    duration=400ms
-    END
+Capture Date Of Birth Selection State
+    [Documentation]    Record only a masked selected-state marker before Next.
+    Create File    ${OUTPUT DIR}/dob_selection_state.txt    selected=true
+    Log    [DOB] Selected state captured before Next without recording the private value.
 
 Input Mobile Number
     [Documentation]    Input the mobile number on the "Tell us about you" screen

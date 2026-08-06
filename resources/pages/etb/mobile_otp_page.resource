@@ -20,19 +20,8 @@ Input OTP
     [Documentation]    Input the OTP into the OTP input field.
     [Arguments]    ${otp}
 
-    Wait Until Element Is Visible    ${FIELD_OTP0}    ${NCBD_LOADING_TIMEOUT}
-    Click Element    ${FIELD_OTP0}
-    Enter OTP By Keycodes    ${otp}
-
-Enter OTP By Keycodes
-    [Documentation]    Enter the OTP by sending keycodes for each digit.
-    [Arguments]    ${otp}
-    ${digits}=    Evaluate    ''.join(ch for ch in """${otp}""" if ch.isdigit())
-    ${map}=    Evaluate    {'0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16}
-    ${keycodes}=    Evaluate    [$map[c] for c in $digits]
-    FOR    ${keycode}    IN    @{keycodes}
-        Press Keycode    ${keycode}
-    END
+    Wait Until Element Is Visible    ${MOBILE_OTP_INPUT}    ${NCBD_LOADING_TIMEOUT}
+    Input Text    ${MOBILE_OTP_INPUT}    ${otp}
 
 Handle Post OTP Transition
     [Documentation]    Accept the optional PDPA screen after OTP, otherwise wait for face scan.

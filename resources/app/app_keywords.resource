@@ -1,5 +1,6 @@
 *** Settings ***
 Library    AppiumLibrary
+Library    Collections
 Resource   app_constants.resource
 
 
@@ -12,15 +13,17 @@ ${DEBUG_MODE}                         False
 
 *** Keywords ***
 Open Mobile Application
-    Open Application
-    ...    ${APPIUM_URL}
+    &{capabilities}=    Create Dictionary
     ...    platformName=Android
     ...    automationName=UiAutomator2
     ...    deviceName=${DEVICE_NAME}
-    # ...    app=${APK_PATH}
     ...    appPackage=${APP_PACKAGE}
     ...    appActivity=${APP_ACTIVITY}
     ...    noReset=false
+    IF    $DEVICE_UDID
+        Set To Dictionary    ${capabilities}    udid=${DEVICE_UDID}
+    END
+    Open Application    ${APPIUM_URL}    &{capabilities}
 
 Allow Android Permission If Visible
     ${is_visible}=    Run Keyword And Return Status

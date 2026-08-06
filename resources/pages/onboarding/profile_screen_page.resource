@@ -5,12 +5,12 @@ Library     String
 Library     OperatingSystem
 Resource    ../../../locators/android/onboarding/profile_screen_locators.resource
 Resource    ../../keywords/dob_stability_keywords.resource
+Resource    ../../keywords/android_wheel_picker.resource
 Resource    ../../app/app_constants.resource
 
 
 *** Variables ***
 ${PROFILE_TIMEOUT}    10s
-${DOB_PICKER_TIMEOUT}    3s
 ${PROFILE_INVESTIGATION_DIR}    reports/investigation/profile
 ${PROFILE_DEBUG_PANEL_BUTTON}    xpath=//*[@content-desc="Open debug panel"]
 
@@ -201,74 +201,4 @@ Tap Profile Next
 
 Select DOB Picker Value
     [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}
-    Wait Until Element Is Visible    ${picker_locator}    ${DOB_PICKER_TIMEOUT}
-    FOR    ${index}    IN RANGE    25
-        ${current_value}=    Read DOB Picker Visible Value    ${picker_locator}
-        # ponytail: numbers render without leading zero ('7' != '07' as strings); compare as integers for number kind
-        IF    '${value_kind}' == 'month'
-            ${matched}=    Run Keyword And Return Status    Should Be Equal As Strings    ${current_value}    ${target_value}
-        ELSE
-            ${matched}=    Run Keyword And Return Status    Should Be Equal As Integers    ${current_value}    ${target_value}
-        END
-        IF    ${matched}
-            RETURN
-        END
-
-        IF    '${value_kind}' == 'month'
-            ${current_index}=    Get From Dictionary    ${MONTH_INDEXES}    ${current_value}
-            ${target_index}=    Get From Dictionary    ${MONTH_INDEXES}    ${target_value}
-        ELSE
-            ${current_index}=    Convert To Integer    ${current_value}
-            ${target_index}=    Convert To Integer    ${target_value}
-        END
-
-        ${direction}=    Set Variable If    ${current_index} < ${target_index}    up    down
-        Record DOB Picker Attempt    ${value_kind}    ${target_value}    ${current_value}    ${direction}
-        ${picker_rect}=    Get Element Rect    ${picker_locator}
-        ${center_x}=    Evaluate    int(${picker_rect['x']} + (${picker_rect['width']} / 2))
-        ${diff}=    Evaluate    abs(int(${current_index}) - int(${target_index}))
-        IF    ${diff} <= 2
-            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_FINE_END_RATIO}))
-            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_FINE_START_RATIO}))
-        ELSE
-            ${top_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_COARSE_END_RATIO}))
-            ${bottom_y}=    Evaluate    int(${picker_rect['y']} + (${picker_rect['height']} * ${DOB_COARSE_START_RATIO}))
-        END
-        IF    '${direction}' == 'up'
-            Execute Adb Shell    input    swipe    ${center_x}    ${bottom_y}    ${center_x}    ${top_y}    ${DOB_DRAG_DURATION}
-        ELSE
-            Execute Adb Shell    input    swipe    ${center_x}    ${top_y}    ${center_x}    ${bottom_y}    ${DOB_DRAG_DURATION}
-        END
-        Sleep    ${DOB_SETTLE_TIME}s
-    END
-    Record DOB Failure    ${value_kind}    ${target_value}    exhausted 25 attempts
-    Capture DOB Failure Evidence    ${value_kind}    ${target_value}
-    Fail    Could not select DOB picker value '${target_value}' using locator '${picker_locator}'.
-
-Read DOB Picker Visible Value
-    [Arguments]    ${picker_locator}
-    Wait Until Element Is Visible    ${picker_locator}    ${DOB_PICKER_TIMEOUT}
-    ${desc}=    Get Element Attribute    ${picker_locator}    content-desc
-    ${desc_value}=    Set Variable    ${EMPTY}
-    IF    '${desc}' != '' and '${desc}' != 'None'
-        ${desc_value}=    Fetch From Right    ${desc}    ,
-        ${desc_value}=    Strip String    ${desc_value}
-        IF    '${desc_value}' != ''
-            RETURN    ${desc_value}
-        END
-    END
-    # Fallback: read the selected value from the center visible TextView in the picker wheel.
-    # Structure: SeekBar > ViewGroup[0] > ScrollView(flatlist) > ViewGroup > ViewGroup[3] > TextView
-    ${result_status}    ${center_text}=    Run Keyword And Ignore Error
-    ...    Get Text    ${picker_locator}/android.view.ViewGroup/android.widget.ScrollView/android.view.ViewGroup/android.view.ViewGroup[3]/android.widget.TextView
-    IF    '${result_status}' == 'PASS'
-        ${value}=    Strip String    ${center_text}
-        IF    '${value}' != ''
-            RETURN    ${value}
-        END
-    END
-    # Fallback: parse content-desc from SeekBar
-    ${desc}=    Get Element Attribute    ${picker_locator}    content-desc
-    ${value}=    Fetch From Right    ${desc}    ,
-    ${value}=    Strip String    ${value}
-    RETURN    ${value}
+    Select Android Wheel Picker Value    ${picker_locator}    ${target_value}    ${value_kind}

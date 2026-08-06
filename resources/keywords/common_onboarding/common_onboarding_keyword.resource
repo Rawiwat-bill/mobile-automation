@@ -23,14 +23,19 @@ Common Onboarding Flow
     Wait Until Terms And Conditions Screen Is Displayed
     Mark Health Checkpoint    TERMS_AND_CONDITIONS_VISIBLE
     Scroll Down Terms And Conditions
-    Accept Terms And Conditions
+    ${terms_result}=    Accept Terms And Conditions
+    IF    '${terms_result}' == 'AJI-001'
+        Mark Health Checkpoint    ETB_ENVIRONMENT_BACKEND_HANDOFF
+        RETURN    AJI-001
+    END
     Mark Health Checkpoint    TERMS_AND_CONDITIONS_ACCEPTED
 
     Wait Until Tell Us About You Screen Is Displayed
     Mark Health Checkpoint    TELL_US_ABOUT_YOU_VISIBLE
-    Input Citizen ID    ${citizen_id}
+    tell_us_about_you_page.Input Citizen ID    ${citizen_id}
     Select Date Of Birth    ${date_of_birth}
-    Input Mobile Number    ${mobile_number}
+    tell_us_about_you_page.Input Mobile Number    ${mobile_number}
     Wait Until Fields Are Blurred
     Click Next Button
     Mark Health Checkpoint    TELL_US_ABOUT_YOU_COMPLETED
+    RETURN    NEXT

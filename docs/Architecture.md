@@ -1,5 +1,8 @@
 # Enterprise AI QA Platform Architecture
 
+Platform status: Hermes Platform v1.2 / FROZEN. This document describes the
+existing platform boundary; ETB completion does not expand or redesign it.
+
 ## Platform Layers
 
 ```
@@ -224,10 +227,14 @@ NTB test data: `testdata/onboarding/ntb.local.yaml` (local, gitignored)
 [Common Flow]
   │
   ▼
-ETB-specific flow (TBD)
+ETB English flow
 ```
 
-ETB-specific keywords: `resources/keywords/etb_keywords.resource`
+ETB English-specific flow: DOPA and Laser Code → mobile OTP → PDPA/face-scan
+introduction → ETB setup and Re-enter PIN → Registration Complete/success marker
+→ approved idempotent profile cleanup.
+
+ETB-specific keywords: `resources/keywords/etb/etb_keywords.resource`
 ETB test suite: `tests/android/etb/etb_flow.robot`
 ETB test data: `testdata/onboarding/etb.local.yaml` (local, gitignored)
 
@@ -295,4 +302,4 @@ ETB test data: `testdata/onboarding/etb.local.yaml` (local, gitignored)
 | M3 | NTB OCR | Pending |
 | M4 | Face Verification | Pending |
 | M5 | PIN Setup | Pending |
-| M6 | ETB Flow | Pending |
+| M6 | ETB English Flow | Done |

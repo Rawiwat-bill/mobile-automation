@@ -20,10 +20,19 @@ __pycache__/
 apps/android/*.apk
 
 # Local sensitive test data
+/local/
 *.local.yaml
 *.local.yaml.bak
 *.secret.yaml
 .env
+.runtime/
+/apps/android/mock/derived/
+/apps/android/mock/ntb_ilove.png
+/apps/android/mock/ntb_somjai.png
+/tools/frida/ocr/dist/
+/testdata/onboarding/ilove.yaml
+/testdata/onboarding/somjai.yaml
+/tests/android/profile_resolution.robot
 
 # Tool config
 opencode.json

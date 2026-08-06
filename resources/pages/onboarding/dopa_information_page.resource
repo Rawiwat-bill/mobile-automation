@@ -2,9 +2,9 @@
 Library     AppiumLibrary
 Library     Process
 Library     String
+Library     OperatingSystem
 Resource    ../../../locators/android/onboarding/dopa_information_locators.resource
-Resource    ../../../resources/app/app_constants.resource
-Resource    profile_screen_page.resource
+Resource    ../../keywords/android_wheel_picker.resource
 
 
 *** Variables ***
@@ -23,8 +23,9 @@ Tap DOPA Element Center
     ${rect}=    Get Element Rect    ${locator}
     ${cx}=    Evaluate    int(${rect['x']} + (${rect['width']} / 2))
     ${cy}=    Evaluate    int(${rect['y']} + (${rect['height']} / 2))
-    ${tap_point}=    Create List    ${cx}    ${cy}
-    Tap    ${tap_point}
+    # ponytail: adb input tap (OS-level touch) -- the proven RN interaction for DOPA controls
+    # (knowledge/profile/next_button.md). Appium Click/Tap intermittently fails to open RN fields.
+    Execute Adb Shell    input    tap    ${cx}    ${cy}
 
 Scroll DOPA Down
     ${width}=    Get Window Width
@@ -66,23 +67,19 @@ Set DOPA Date Via Picker
     ${found}=    Run Keyword And Return Status    Wait Until Page Contains Element    ${field_locator}    5s
     IF    not ${found}
         Scroll DOPA Down
-        ${found}=    Run Keyword And Return Status    Wait Until Page Contains Element    ${field_locator}    5s
+        Wait Until Page Contains Element    ${field_locator}    5s
     END
-    IF    ${found}
-        Click Element    ${field_locator}
-        ${picker_open}=    Run Keyword And Return Status    Wait Until Page Contains Element    ${DOPA_DATE_PICKER_YEAR}    5s
-        IF    ${picker_open}
-            DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_YEAR}    ${year}    number
-            DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_MONTH}    ${month_name}    month
-            DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_DAY}    ${day}    number
-            Click Element    ${DOPA_DATE_PICKER_CONFIRM}
-            Run Keyword And Return Status    Wait Until Page Does Not Contain Element    ${DOPA_DATE_PICKER_YEAR}    3s
-            Log    [DOPA] Date set: ${day} ${month_name} ${year}    WARN
-        ELSE
-            Log    [DOPA] Date picker did not open    WARN
-        END
+    Tap DOPA Element Center    ${field_locator}
+    ${picker_open}=    Run Keyword And Return Status    Wait Until Page Contains Element    ${DOPA_DATE_PICKER_YEAR}    5s
+    IF    ${picker_open}
+        DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_YEAR}    ${year}    number
+        DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_MONTH}    ${month_name}    month
+        DOPA Scroll Picker To Value    ${DOPA_DATE_PICKER_DAY}    ${day}    number
+        Click Element    ${DOPA_DATE_PICKER_CONFIRM}
+        Run Keyword And Return Status    Wait Until Page Does Not Contain Element    ${DOPA_DATE_PICKER_YEAR}    3s
+        Log    [DOPA] Date set using the proven DOPA wheel interaction.
     ELSE
-        Log    [DOPA] Date field not found: ${field_locator}    WARN
+        Log    [DOPA] Date picker did not open    WARN
     END
 
 DOPA Scroll Picker To Value
@@ -118,6 +115,17 @@ DOPA Scroll Picker To Value
         END
         Sleep    ${DOB_SETTLE_TIME}s
     END
+    Fail    DOPA wheel picker did not reach the expected value.
+
+DOPA Date Field Should Match
+    [Arguments]    ${field_locator}    ${day}    ${month_name}    ${year}
+    Wait Until Page Contains Element    ${field_locator}    ${DOPA_FIELD_TIMEOUT}
+    ${actual}=    Get Text    ${field_locator}
+    ${actual}=    Replace String    ${actual}    .    ${EMPTY}
+    ${parts}=    Split String    ${actual}
+    ${matches}=    Evaluate
+    ...    len($parts) == 3 and int($parts[0]) == int($day) and $parts[1].lower() == $month_name[:3].lower() and int($parts[2]) == int($year)
+    Should Be True    ${matches}    Committed DOPA date differs from the expected profile value.
 
 Tap DOPA Next
     Execute Adb Shell    input    keyevent    111
@@ -161,3 +169,101 @@ Fill DOPA Laser Code
         Log    [DOPA] Laser part3 filled: ${part3}    WARN
     END
     Run Keyword And Ignore Error    Hide Keyboard
+
+
+Normalize Title
+    [Arguments]    ${title}
+    ${t}=    Strip String    ${title}
+    ${t}=    Replace String    ${t}    .    ${EMPTY}
+    ${t}=    Set Variable If    '${t}' == 'Mr'    นาย    ${t}
+    ${t}=    Set Variable If    '${t}' == 'Miss'    นางสาว    ${t}
+    ${t}=    Set Variable If    '${t}' == 'Mrs'    นาง    ${t}
+    RETURN    ${t}
+
+
+Get DOPA Title Value
+    ${status}    ${raw}=    Run Keyword And Ignore Error    Get Text    ${DOPA_TITLE_VALUE}
+    Return From Keyword If    '${status}' != 'PASS'    ${EMPTY}
+    ${norm}=    Normalize Title    ${raw}
+    RETURN    ${norm}
+
+
+Title Option Candidates
+    [Arguments]    ${expected}
+    IF    '${expected}' == 'นาย'
+        ${candidates}=    Create List    นาย    Mr    Mr.
+    ELSE IF    '${expected}' == 'นางสาว'
+        ${candidates}=    Create List    นางสาว    Miss    Miss.
+    ELSE IF    '${expected}' == 'นาง'
+        ${candidates}=    Create List    นาง    Mrs    Mrs.
+    ELSE
+        ${candidates}=    Create List    ${expected}
+    END
+    RETURN    ${candidates}
+
+
+Select DOPA Title Option
+    [Arguments]    ${expected}
+    ${candidates}=    Title Option Candidates    ${expected}
+    FOR    ${candidate}    IN    @{candidates}
+        # ponytail: accessibility_id (content-desc) targets the RN Pressable ROW (resource-id="group-list-press"),
+        # not the inner text node. Row is non-clickable/enabled=false in the a11y tree -> adb tap fires onPress
+        # (knowledge/profile/next_button.md). Requires Appium --relaxed-security.
+        ${present}=    Run Keyword And Return Status    Page Should Contain Element    accessibility_id=${candidate}    2s
+        IF    ${present}
+            ${rect}=    Get Element Rect    accessibility_id=${candidate}
+            ${cx}=    Evaluate    int(${rect['x']} + (${rect['width']} / 2))
+            ${cy}=    Evaluate    int(${rect['y']} + (${rect['height']} / 2))
+            Execute Adb Shell    input    tap    ${cx}    ${cy}
+            Log    [DOPA] Title option adb-tapped: '${candidate}' row @ (${cx}, ${cy})    WARN
+            RETURN    ${TRUE}
+        END
+    END
+    RETURN    ${FALSE}
+
+
+Capture DOPA Title Dropdown Evidence
+    ${ts}=    Get Time    epoch
+    ${shot}=    Set Variable    ${OUTPUT DIR}${/}dopa_title_dropdown_open_${ts}.png
+    ${xml_path}=    Set Variable    ${OUTPUT DIR}${/}dopa_title_dropdown_open_${ts}.xml
+    Run Keyword And Ignore Error    Capture Page Screenshot    ${shot}
+    ${src}=    Run Keyword And Ignore Error    Get Source
+    Run Keyword And Ignore Error    Create File    ${xml_path}    ${src}[1]    UTF-8
+    Log    [DOPA] Evidence: ${shot} | ${xml_path}    WARN
+
+
+Title Is Accepted Equivalent
+    [Arguments]    ${raw}    ${expected}
+    # ponytail: equivalence lives in Normalize Title (Mr/Mr.->นาย etc.); this iterates the
+    # explicit accepted list from Title Option Candidates and rejects empty = no selection.
+    ${norm}=    Normalize Title    ${raw}
+    Should Not Be Empty    ${norm}    DOPA title is empty (no selection registered)
+    ${candidates}=    Title Option Candidates    ${expected}
+    FOR    ${c}    IN    @{candidates}
+        ${cn}=    Normalize Title    ${c}
+        IF    '${cn}' == '${norm}'
+            RETURN
+        END
+    END
+    Fail    DOPA title '${raw}' not in accepted equivalents ${candidates}
+
+
+Select DOPA Title If Needed
+    [Arguments]    ${expected_title}
+    ${expected}=    Normalize Title    ${expected_title}
+    ${current}=    Get DOPA Title Value
+    IF    '${current}' == '${expected}'
+        Log    [DOPA] Title already set correctly: ${current}    WARN
+        RETURN
+    END
+    Log    [DOPA] Title needs selection: current='${current}' expected='${expected}'    WARN
+    Tap DOPA Element Center    ${DOPA_TITLE_DROPDOWN}
+    Sleep    1s
+    Capture DOPA Title Dropdown Evidence
+    ${picked}=    Select DOPA Title Option    ${expected}
+    Run Keyword And Ignore Error    Hide Keyboard
+    Should Be True    ${picked}    DOPA title option not found in dropdown for expected='${expected}'
+    Sleep    1s
+    ${after}=    Get DOPA Title Value
+    Title Is Accepted Equivalent    ${after}    ${expected}
+    Log    [DOPA] Title selected and confirmed: ${after}    WARN

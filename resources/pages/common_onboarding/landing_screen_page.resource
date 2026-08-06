@@ -31,8 +31,20 @@ Switch Landing Language To Thai
 
 Switch Landing Language To English
     [Documentation]    Switch the landing screen language to English
-    Wait Until Element Is Visible    ${LANDING_LANGUAGE_ENGLISH_BUTTON}    ${LANDING_TIMEOUT}
-    Click Element    ${LANDING_LANGUAGE_ENGLISH_BUTTON}
+    Wait Until Element Is Visible    ${LANDING_LANGUAGE_SWITCH}    ${LANDING_TIMEOUT}
+    ${language_description}=    Get Element Attribute    ${LANDING_LANGUAGE_SWITCH}    content-desc
+    ${english_selected}=    Run Keyword And Return Status
+    ...    Should Contain    ${language_description}    English selected
+    IF    ${english_selected}
+        RETURN
+    END
+    ${switch_rect}=    Get Element Rect    ${LANDING_LANGUAGE_SWITCH}
+    ${center_x}=    Evaluate    int(${switch_rect['x']} + (${switch_rect['width']} / 2))
+    ${center_y}=    Evaluate    int(${switch_rect['y']} + (${switch_rect['height']} / 2))
+    Execute Adb Shell    input    tap    ${center_x}    ${center_y}
+    Wait Until Element Is Visible
+    ...    xpath=//*[@resource-id="screenLanding_languageSwitch" and contains(@content-desc,"English selected")]
+    ...    ${LANDING_TIMEOUT}
 
 Skip Landing Screen
     [Documentation]    Skip the landing screen by tapping the "Skip" button

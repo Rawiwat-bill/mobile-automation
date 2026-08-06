@@ -13,7 +13,15 @@ Complete ETB Onboarding
     [Documentation]    Complete the onboarding flow for ETB
     [Arguments]    ${citizen_id}    ${date_of_birth}    ${mobile_number}    ${laser_code}    ${otp}    ${pin}
 
-    Common Onboarding Flow    ${citizen_id}    ${date_of_birth}    ${mobile_number}
+    ${common_result}=    Common Onboarding Flow    ${citizen_id}    ${date_of_birth}    ${mobile_number}
+    IF    '${common_result}' == 'AJI-001'
+        Set Health Check Blocker
+        ...    AJI-001
+        ...    Environment/backend handoff: service is not available.
+        ...    ${OUTPUT DIR}
+        Mark Health Checkpoint    ETB_ENVIRONMENT_BACKEND_HANDOFF
+        RETURN    ${FALSE}
+    END
 
     # Check DOPA Fill Laser Code Screen
     Wait Until Check DOPA Fill Laser Code Is Displayed
@@ -57,3 +65,4 @@ Complete ETB Onboarding
     Mark Health Checkpoint    SIGN_UP_RESULT_SUCCESS_VISIBLE
     Click Element    ${BUTTON_LETGO}
     Mark Health Checkpoint    SIGN_UP_RESULT_SUCCESS_COMPLETED
+    RETURN    ${TRUE}

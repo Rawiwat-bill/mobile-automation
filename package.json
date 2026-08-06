@@ -7,6 +7,6 @@
   },
   "scripts": {
     "appium": "appium --use-plugins=inspector --allow-cors --relaxed-security",
-    "etb:physical": "robot -v DEVICE_NAME:R5CWC1AXKSZ -d reports tests/android/etb/etb_flow.robot"
+    "etb:physical": ": \"${DEVICE_UDID:?Set DEVICE_UDID to the target device serial}\" && robot -v \"DEVICE_UDID:${DEVICE_UDID}\" -d reports tests/android/etb/etb_flow.robot"
   }
 }

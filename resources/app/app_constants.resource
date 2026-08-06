@@ -3,6 +3,7 @@ ${APP_PACKAGE}              com.bangkokbank.blue.dev
 ${APP_ACTIVITY}             com.bangkokbank.blue.MainActivity
 ${APPIUM_URL}               http://127.0.0.1:4723
 ${DEVICE_NAME}              Android Emulator
+${DEVICE_UDID}              ${EMPTY}
 ${APK_PATH}                 ${CURDIR}/../../apps/android/app.apk
 
 ${NCBD_LOADING_TIMEOUT}     40s
