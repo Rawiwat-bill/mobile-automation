@@ -1,0 +1,401 @@
+schema_version: '1.0'
+source:
+  file: docs/source/testcases/etb/current/QA_TestCase_OPO_ETB Registration_Automation.xlsx
+  sheet: Test Cases
+  scope: TC-ETB-001..TC-ETB-013
+execution_lifecycle:
+  preparation:
+    cis_clear: REQUIRED
+  cleanup:
+    cis_clear: REQUIRED
+cases:
+  etb_tc_001:
+    tc_id: TC-ETB-001
+    name: Customer is Pass all registration conditions and answer PDPA clause 6 =
+      Accept
+    enabled: true
+    profile_id: etb_tc_001
+    tags:
+    - positive
+    - pdpa
+    expected_branch: positive path; PDPA visibility conflicts between title and expected
+      result
+    expected_screen: 'Control screen: 3C'
+    expected_error_code: null
+    expected_action: Complete registration flow
+    terminal_state: registration success/control screen
+    cleanup_required: true
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "Not display \n- PDPA screen\nDisplay \n- Select Product\
+      \ screen \n- Pre-SET Success screen\n- Intoduction 3C\n- Control screen : 3C\n"
+    source_row: 4
+    data_readiness: UI_DATA_READY
+    otp_policy: APPROVED_SHARED_DEFAULT
+    pin_policy: APPROVED_SHARED_DEFAULT
+    laser_code_policy: APPROVED_SHARED_DEFAULT_FOR_DEV
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+    interpretation_note: Title conflicts with Expected Result; execution planning
+      follows Expected Result, which says PDPA is not displayed.
+  etb_tc_002:
+    tc_id: TC-ETB-002
+    name: Customer is Pass all registration conditions and never given PDPA consent
+      clause no. 6
+    enabled: true
+    profile_id: etb_tc_002
+    tags:
+    - positive
+    - pdpa
+    expected_branch: positive path with PDPA Clause 6 displayed and accepted
+    expected_screen: 'Control screen: 3C'
+    expected_error_code: null
+    expected_action: Complete registration flow
+    terminal_state: registration success/control screen
+    cleanup_required: true
+    readiness: HOLD_PDPA_RESET_CURL
+    execution_status: HOLD_PDPA_RESET_CURL
+    clarification_required: []
+    official_expected_result: "Display \n- PDPA screen\n- Select Product screen \n\
+      - Pre-SET Success screen\n- Intoduction 3C\n- Control screen : 3C"
+    source_row: 5
+    data_readiness: UI_DATA_READY
+    otp_policy: APPROVED_SHARED_DEFAULT
+    pin_policy: APPROVED_SHARED_DEFAULT
+    laser_code_policy: APPROVED_SHARED_DEFAULT_FOR_DEV
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: true
+    pdpa_reset_blocker: PDPA_RESET_CURL_PENDING
+    execution_lifecycle:
+      preparation:
+        cis_clear: REQUIRED
+        pdpa_clear: REQUIRED
+      cleanup:
+        cis_clear: REQUIRED
+        pdpa_clear: BEST_EFFORT
+  etb_tc_003:
+    tc_id: TC-ETB-003
+    name: Customer not have active Savings account
+    enabled: true
+    profile_id: etb_tc_003
+    tags:
+    - positive
+    - product-selection
+    - clarification
+    expected_branch: no active Savings account; Product Selection skip/display conflict
+    expected_screen: 'Control screen: 3C'
+    expected_error_code: null
+    expected_action: Complete registration flow
+    terminal_state: registration success/control screen
+    cleanup_required: true
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required:
+    - Clarify the conflicting Select Product outcomes in Expected Result.
+    official_expected_result: "Not display \n- Select Product screen (Skip)\nDisplay\
+      \ \n- Select Product screen \n- Pre-SET Success screen\n- Intoduction 3C\n-\
+      \ Control screen : 3C\n"
+    source_row: 6
+    data_readiness: UI_DATA_READY
+    otp_policy: APPROVED_SHARED_DEFAULT
+    pin_policy: APPROVED_SHARED_DEFAULT
+    laser_code_policy: APPROVED_SHARED_DEFAULT_FOR_DEV
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+  etb_tc_004:
+    tc_id: TC-ETB-004
+    name: Customer have Saving, e-Saving account
+    enabled: true
+    profile_id: etb_tc_004
+    tags:
+    - positive
+    - product-selection
+    expected_branch: existing Saving and e-Saving accounts; Product Selection account
+      display
+    expected_screen: 'Control screen: 3C'
+    expected_error_code: null
+    expected_action: Complete registration flow
+    terminal_state: registration success/control screen
+    cleanup_required: true
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "Display \n- Select Product screen : found Saving, e-Saving\
+      \ account on the screen\n- Pre-SET Success screen\n- Intoduction 3C\n- Control\
+      \ screen : 3C"
+    source_row: 7
+    data_readiness: UI_DATA_READY
+    otp_policy: APPROVED_SHARED_DEFAULT
+    pin_policy: APPROVED_SHARED_DEFAULT
+    laser_code_policy: APPROVED_SHARED_DEFAULT_FOR_DEV
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+  etb_tc_005:
+    tc_id: TC-ETB-005
+    name: 'Customer enter Mobile number mismatch in RM  '
+    enabled: true
+    profile_id: etb_tc_005
+    tags:
+    - exception
+    - mobile-mismatch
+    expected_branch: CI/DOB/mobile entry then RGI-079 popup; OK closes popup
+    expected_screen: RGI error screen
+    expected_error_code: RGI-079
+    expected_action: OK
+    terminal_state: popup closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen\n- Display pop up error 'RGI-079' after\
+      \ tap 'Next' \n- When Tab 'OK' >> found close POP UP"
+    source_row: 8
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+  etb_tc_006:
+    tc_id: TC-ETB-006
+    name: 'Customer enter DOB mismatch in RM  '
+    enabled: true
+    profile_id: etb_tc_006
+    tags:
+    - exception
+    - dob-mismatch
+    expected_branch: CI/DOB/mobile entry then RGI-076 popup; OK closes popup
+    expected_screen: RGI error screen
+    expected_error_code: RGI-076
+    expected_action: OK
+    terminal_state: popup closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen\n- Display pop up error 'RGI-076' after\
+      \ tap 'Next' \nWhen Tab 'OK' >> found close POP UP"
+    source_row: 9
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+  etb_tc_007:
+    tc_id: TC-ETB-007
+    name: Customer CID is expired
+    enabled: true
+    profile_id: etb_tc_007
+    tags:
+    - exception
+    - expired-cid
+    expected_branch: expired CID; RGI-012 full-screen error; Find a branch; Close
+      App
+    expected_screen: RGI error screen
+    expected_error_code: RGI-012
+    expected_action: Find a branch then Close App
+    terminal_state: app closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen : \n- Display full screen error 'RGI-012'\
+      \ after tap 'Next' \n- Display link 'Find a branch' on full screen error \n\
+      - able to tab the link 'Find a branch' \n- When Tab 'Close App' button >> Close\
+      \ the App"
+    source_row: 10
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+  etb_tc_008:
+    tc_id: TC-ETB-008
+    name: Customer is high risk (3X, 3U, 3V, 3A, 3B)
+    enabled: true
+    profile_id: etb_tc_008
+    tags:
+    - exception
+    - high-risk
+    - 3A
+    expected_branch: high-risk subtype 3A; RGI-014 full-screen error; Find a branch;
+      Close App
+    expected_screen: RGI error screen
+    expected_error_code: RGI-014
+    expected_action: Find a branch then Close App
+    terminal_state: app closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen : \n- Display full screen error 'RGI-014'\
+      \ after tap 'Next'\n- Display link 'Find a branch' on full screen error \n-\
+      \ able to tab the link 'Find a branch' \n- When Tab 'Close App' button >> Close\
+      \ the App"
+    source_row: 11
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+    interpretation_note: Subtype notes are retained as supplied; no additional 3X
+      business blocker is applied because Expected Result is executable and shared.
+  etb_tc_009:
+    tc_id: TC-ETB-009
+    name: Customer is high risk (3X, 3U, 3V, 3A, 3B)
+    enabled: true
+    profile_id: etb_tc_009
+    tags:
+    - exception
+    - high-risk
+    - 3V
+    expected_branch: high-risk subtype 3V; RGI-014 full-screen error; Find a branch;
+      Close App
+    expected_screen: RGI error screen
+    expected_error_code: RGI-014
+    expected_action: Find a branch then Close App
+    terminal_state: app closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen : \n- Display full screen error 'RGI-014'\
+      \ after tap 'Next'\n- Display link 'Find a branch' on full screen error \n-\
+      \ able to tab the link 'Find a branch' \n- When Tab 'Close App' button >> Close\
+      \ the App"
+    source_row: 12
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+    interpretation_note: Subtype notes are retained as supplied; no additional 3X
+      business blocker is applied because Expected Result is executable and shared.
+  etb_tc_010:
+    tc_id: TC-ETB-010
+    name: Customer is high risk (3X, 3U, 3V, 3A, 3B)
+    enabled: true
+    profile_id: etb_tc_010
+    tags:
+    - exception
+    - high-risk
+    - 3U
+    expected_branch: high-risk subtype 3U; RGI-014 full-screen error; Find a branch;
+      Close App
+    expected_screen: RGI error screen
+    expected_error_code: RGI-014
+    expected_action: Find a branch then Close App
+    terminal_state: app closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen : \n- Display full screen error 'RGI-014'\
+      \ after tap 'Next'\n- Display link 'Find a branch' on full screen error \n-\
+      \ able to tab the link 'Find a branch' \n- When Tab 'Close App' button >> Close\
+      \ the App"
+    source_row: 13
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+    interpretation_note: Subtype notes are retained as supplied; no additional 3X
+      business blocker is applied because Expected Result is executable and shared.
+  etb_tc_011:
+    tc_id: TC-ETB-011
+    name: Customer is high risk (3X, 3U, 3V, 3A, 3B)
+    enabled: true
+    profile_id: etb_tc_011
+    tags:
+    - exception
+    - high-risk
+    - 3B
+    expected_branch: high-risk subtype 3B; RGI-014 full-screen error; Find a branch;
+      Close App
+    expected_screen: RGI error screen
+    expected_error_code: RGI-014
+    expected_action: Find a branch then Close App
+    terminal_state: app closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen : \n- Display full screen error 'RGI-014'\
+      \ after tap 'Next'\n- Display link 'Find a branch' on full screen error \n-\
+      \ able to tab the link 'Find a branch' \n- When Tab 'Close App' button >> Close\
+      \ the App"
+    source_row: 14
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+    interpretation_note: Subtype notes are retained as supplied; no additional 3X
+      business blocker is applied because Expected Result is executable and shared.
+  etb_tc_012:
+    tc_id: TC-ETB-012
+    name: Customer have BBL IAL < 2.1
+    enabled: true
+    profile_id: etb_tc_012
+    tags:
+    - exception
+    - ial
+    expected_branch: IAL <2.1; RGI-013 full-screen error; Find a branch; Close App
+    expected_screen: RGI error screen
+    expected_error_code: RGI-013
+    expected_action: Find a branch then Close App
+    terminal_state: app closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "CI&DOB screen\n- Display full screen error 'RGI-013'\
+      \ after tap 'Next'\n- Display link 'Find a branch' on full screen error \n-\
+      \ able to tab the link\n- When Tab 'Close App' button >> Close the App"
+    source_row: 15
+    data_readiness: UI_DATA_READY
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+  etb_tc_013:
+    tc_id: TC-ETB-013
+    name: Customer is suspect for mule account (Warning)
+    enabled: true
+    profile_id: etb_tc_013
+    tags:
+    - exception
+    - mule-warning
+    expected_branch: mule/suspicious-account warning; RGI-016; Find a branch; Close
+      App
+    expected_screen: RGI error screen
+    expected_error_code: RGI-016
+    expected_action: Find a branch then Close App
+    terminal_state: app closed
+    cleanup_required: null
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
+    clarification_required: []
+    official_expected_result: "Enter Laser Code screen\n- Display full screen error\
+      \ 'RGI-016' after tap 'Next'\n- Display link 'Find a branch' on full screen\
+      \ error \n- able to tab the link\n- When Tab 'Close App' button >> Close the\
+      \ App"
+    source_row: 16
+    data_readiness: UI_DATA_READY
+    laser_code_policy: APPROVED_SHARED_DEFAULT_FOR_DEV
+    prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
+    runtime_status: RUNTIME_EVIDENCE_REQUIRED
+    pdpa_reset_required: false
+    interpretation_note: Title/Notes use warning language; execution planning follows
+      Expected Result, which specifies RGI-016 and terminal Close App.
+policy:
+  canonical_field_precedence:
+  - Pre Condition
+  - Expected Result / Expected (PostMMP)
+  - Remark / Notes
+  - Test Case Name
+  prepared_profile_policy: PREPARED_PROFILE_ASSUMED_READY unless runtime evidence
+    reclassifies it
+  pdpa_reset_status: PDPA_RESET_CURL_PENDING
+  pdpa_reset_remark: Waiting for the team-provided curl command to delete or reset
+    PDPA state.
+  execution_policy: TC-ETB-002 is the only case currently held; TC-ETB-001 and
+    TC-ETB-003..TC-ETB-013 are approved to proceed. Clarification notes are
+    informational and non-blocking.

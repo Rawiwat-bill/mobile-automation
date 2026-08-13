@@ -1,6 +1,6 @@
 *** Variables ***
 ${DOPA_INFORMATION_SCREEN}                    xpath=//*[contains(@resource-id,"screenDopaInformation")]
-# ponytail: 'dropdown' is a generic id, but it is the only dropdown on the DOPA screen (the Title selector).
+# 'dropdown' is a generic id, but it is the only dropdown on the DOPA screen (the Title selector).
 ${DOPA_TITLE_DROPDOWN}                        xpath=//*[@resource-id="dropdown"]
 # displayed value lives in the dropdown's child TextView; the ViewGroup's own text="" (verified via Appium XML).
 ${DOPA_TITLE_VALUE}                           xpath=//*[@resource-id="dropdown"]//*[@resource-id="text"]

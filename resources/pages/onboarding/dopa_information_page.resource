@@ -23,8 +23,8 @@ Tap DOPA Element Center
     ${rect}=    Get Element Rect    ${locator}
     ${cx}=    Evaluate    int(${rect['x']} + (${rect['width']} / 2))
     ${cy}=    Evaluate    int(${rect['y']} + (${rect['height']} / 2))
-    # ponytail: adb input tap (OS-level touch) -- the proven RN interaction for DOPA controls
-    # (knowledge/profile/next_button.md). Appium Click/Tap intermittently fails to open RN fields.
+    # adb input tap (OS-level touch) -- the proven RN interaction for DOPA controls
+    # Appium Click/Tap intermittently fails to open RN fields; use the configured ADB fallback.
     Execute Adb Shell    input    tap    ${cx}    ${cy}
 
 Scroll DOPA Down
@@ -206,9 +206,9 @@ Select DOPA Title Option
     [Arguments]    ${expected}
     ${candidates}=    Title Option Candidates    ${expected}
     FOR    ${candidate}    IN    @{candidates}
-        # ponytail: accessibility_id (content-desc) targets the RN Pressable ROW (resource-id="group-list-press"),
+        # accessibility_id (content-desc) targets the RN Pressable ROW (resource-id="group-list-press"),
         # not the inner text node. Row is non-clickable/enabled=false in the a11y tree -> adb tap fires onPress
-        # (knowledge/profile/next_button.md). Requires Appium --relaxed-security.
+        # Requires Appium --relaxed-security for the configured ADB fallback.
         ${present}=    Run Keyword And Return Status    Page Should Contain Element    accessibility_id=${candidate}    2s
         IF    ${present}
             ${rect}=    Get Element Rect    accessibility_id=${candidate}
@@ -234,7 +234,7 @@ Capture DOPA Title Dropdown Evidence
 
 Title Is Accepted Equivalent
     [Arguments]    ${raw}    ${expected}
-    # ponytail: equivalence lives in Normalize Title (Mr/Mr.->นาย etc.); this iterates the
+    # equivalence lives in Normalize Title (Mr/Mr.->นาย etc.); this iterates the
     # explicit accepted list from Title Option Candidates and rejects empty = no selection.
     ${norm}=    Normalize Title    ${raw}
     Should Not Be Empty    ${norm}    DOPA title is empty (no selection registered)

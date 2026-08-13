@@ -181,20 +181,33 @@ Tap Profile Next Button
     ${next_visible}=    Run Keyword And Return Status    Element Should Be Visible    ${PROFILE_NEXT_BUTTON_CONTAINER}
     ${next_enabled}=    Run Keyword And Return Status    Element Should Be Enabled    ${PROFILE_NEXT_BUTTON_CONTAINER}
     Log    [PROFILE] Next visible/enabled: ${next_visible}/${next_enabled}
+    ${source_before_next}=    Get Source
     Tap Profile Next Using Adb
-    ${profile_closed}=    Run Keyword And Return Status    Wait Until Page Does Not Contain Element    ${PROFILE_TITLE_TEXT}    10s
-    ${service_unavailable}=    Run Keyword And Return Status    Wait Until Page Contains Element    xpath=//*[@text="Service is not available now"]    10s
-    ${navigated}=    Evaluate    ${profile_closed} or ${service_unavailable}
-    IF    not ${navigated}
-        Log    [PROFILE] Adb tap did not navigate, falling back to Appium tap
-        Tap Profile Element Center    ${PROFILE_NEXT_BUTTON_CONTAINER}
-        Log    [PROFILE] Next tapped via Appium
-        ${profile_closed}=    Run Keyword And Return Status    Wait Until Page Does Not Contain Element    ${PROFILE_TITLE_TEXT}    10s
-        ${service_unavailable}=    Run Keyword And Return Status    Wait Until Page Contains Element    xpath=//*[@text="Service is not available now"]    10s
-        ${navigated}=    Evaluate    ${profile_closed} or ${service_unavailable}
+    ${transition_result}=    Wait Until Keyword Succeeds    10s    500ms
+    ...    Observe Profile Next Transition    ${source_before_next}
+    RETURN    ${transition_result}
+
+Observe Profile Next Transition
+    [Arguments]    ${source_before_next}
+    ${profile_visible}=    Run Keyword And Return Status    Element Should Be Visible    ${PROFILE_TITLE_TEXT}
+    ${service_unavailable}=    Run Keyword And Return Status
+    ...    Page Should Contain Element    xpath=//*[@text="Service is not available now"]
+    IF    ${service_unavailable}
+        RETURN    SERVICE_ERROR_VISIBLE
     END
-    Should Be True    ${navigated}    Profile screen did not navigate after Next tap.
-    Log    [PROFILE] Screen after Next: profile_screen_closed
+    IF    not ${profile_visible}
+        RETURN    PROFILE_LEFT_OR_NEXT_STATE_VISIBLE
+    END
+    ${source_after_next}=    Get Source
+    ${source_changed}=    Evaluate    $source_after_next != $source_before_next
+    IF    ${source_changed}
+        ${loading_visible}=    Run Keyword And Return Status
+        ...    Should Contain    ${source_after_next}    android.widget.ImageView
+        IF    not ${loading_visible}
+            RETURN    PROFILE_LEFT_OR_NEXT_STATE_VISIBLE
+        END
+    END
+    Fail    PROFILE_NEXT_LOADING_TIMEOUT
 
 Tap Profile Next
     Tap Profile Next Button
