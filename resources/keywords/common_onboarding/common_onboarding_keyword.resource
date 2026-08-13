@@ -5,6 +5,7 @@ Resource            ../../../resources/app/app_keywords.resource
 Resource            ../../pages/common_onboarding/landing_screen_page.resource
 Resource            ../../pages/common_onboarding/terms_and_conditions_page.resource
 Resource            ../../pages/common_onboarding/tell_us_about_you_page.resource
+Resource            ../../pages/onboarding/profile_screen_page.resource
 Resource            ../../keywords/health_check_keywords.resource
 
 
@@ -33,9 +34,15 @@ Common Onboarding Flow
     Wait Until Tell Us About You Screen Is Displayed
     Mark Health Checkpoint    TELL_US_ABOUT_YOU_VISIBLE
     tell_us_about_you_page.Input Citizen ID    ${citizen_id}
+    Log    PROFILE_INPUT = COMPLETED
     Select Date Of Birth    ${date_of_birth}
+    Log    DOB_INPUT = COMPLETED
     tell_us_about_you_page.Input Mobile Number    ${mobile_number}
+    Log    MOBILE_INPUT = COMPLETED
     Wait Until Fields Are Blurred
-    Click Next Button
+    ${profile_result}=    Tap Profile Next
+    IF    '${profile_result}' == 'SERVICE_ERROR_VISIBLE'
+        RETURN    AJI-001
+    END
     Mark Health Checkpoint    TELL_US_ABOUT_YOU_COMPLETED
     RETURN    NEXT

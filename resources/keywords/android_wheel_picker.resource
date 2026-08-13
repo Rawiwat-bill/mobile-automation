@@ -38,7 +38,7 @@ Read Android Wheel Picker Value
 Get Android Wheel Picker Index
     [Arguments]    ${value}    ${value_kind}
     IF    $value_kind == 'month'
-        # ponytail: MONTH_INDEXES values are strings in *** Variables ***; coerce to int so the
+        # MONTH_INDEXES values are strings in *** Variables ***; coerce to int so the
         # caller's index arithmetic (abs(cur - target)) doesn't hit str-str TypeError.
         ${raw}=    Get From Dictionary    ${MONTH_INDEXES}    ${value}
         ${index}=    Convert To Integer    ${raw}

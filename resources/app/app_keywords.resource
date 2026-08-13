@@ -26,9 +26,9 @@ Open Mobile Application
     Open Application    ${APPIUM_URL}    &{capabilities}
 
 Allow Android Permission If Visible
-    ${is_visible}=    Run Keyword And Return Status
+    ${wait_status}    ${wait_message}=    Run Keyword And Ignore Error
     ...    Wait Until Element Is Visible    ${ANDROID_PERMISSION_ALLOW_BUTTON}    ${ANDROID_PERMISSION_TIMEOUT}
-    IF    ${is_visible}
+    IF    '${wait_status}' == 'PASS'
         Click Element    ${ANDROID_PERMISSION_ALLOW_BUTTON}
         Activate Application    ${APP_PACKAGE}
     END

@@ -13,6 +13,13 @@ Resource    ../pages/onboarding/set_pin_page.resource
 Resource    ../pages/onboarding/confirm_pin_page.resource
 Resource    ../keywords/health_check_keywords.resource
 
+
+*** Variables ***
+# post-PIN success markers (lowercased before matching). Single source of truth for both
+# Stage 1 suites' terminal-state detection -- was duplicated + buggy ($source scope) in the test files.
+@{SUCCESS_MARKERS}    success    complete    saved    welcome    congratulations
+
+
 *** Keywords ***
 Complete Common Onboarding
     [Arguments]    ${citizen_id}    ${date_of_birth}    ${mobile_number}
@@ -73,6 +80,7 @@ Complete Stage 1 Onboarding
     Capture ID Card Photo
     Wait Until DOPA Information Screen Is Displayed
     Mark Health Checkpoint    DOPA_VISIBLE
+    Select DOPA Title If Needed    ${data['dopa']['title']['thai']}
     Wait Until Page Contains Element    xpath=//*[@text="Enter first name in English"]    10s
     Fill DOPA English Names    ${data['dopa']['english']['first_name']}    ${data['dopa']['english']['last_name']}
     ${issue_parts}=    Split String    ${data['dopa']['document']['issue_date']}    -
@@ -96,6 +104,33 @@ Complete Stage 1 Onboarding
     Mark Health Checkpoint    CONFIRM_PIN_VISIBLE
     Enter Confirm PIN Using Custom Keypad    ${data['pin']['value']}
     Mark Health Checkpoint    CONFIRM_PIN_ENTERED
+
+Detect Post PIN Terminal State
+    [Documentation]    Read the page source after Confirm PIN and classify the terminal state.
+    ...                Returns one of: SAVED | ENVIRONMENT_BLOCKED | NEXT_SCREEN_UNKNOWN.
+    ...                pure-Robot membership via FOR + Should Contain. Avoids Evaluate
+    ...                entirely -- Robot $var is not visible inside Evaluate generator scopes, and
+    ...                passing a list as an Evaluate namespace kwarg raised a dict-update ValueError.
+    ...                Empty source classifies as NEXT_SCREEN_UNKNOWN (never a false pass).
+    ${source}=    Get Source
+    ${source_lower}=    Convert To Lower Case    ${source}
+    ${has_success}=    Set Variable    ${FALSE}
+    FOR    ${marker}    IN    @{SUCCESS_MARKERS}
+        ${found}=    Run Keyword And Return Status    Should Contain    ${source_lower}    ${marker}
+        IF    ${found}
+            ${has_success}=    Set Variable    ${TRUE}
+        END
+    END
+    ${has_error}=    Run Keyword And Return Status    Should Contain    ${source_lower}    not available
+    ${has_error_aji}=    Run Keyword And Return Status    Should Contain    ${source}    AJI
+    ${has_error}=    Set Variable If    ${has_error}    ${TRUE}    ${has_error_aji}
+    IF    ${has_success}
+        RETURN    SAVED
+    ELSE IF    ${has_error}
+        RETURN    ENVIRONMENT_BLOCKED
+    ELSE
+        RETURN    NEXT_SCREEN_UNKNOWN
+    END
 
 Accept Terms And Conditions
     Wait Until Consent Screen Is Displayed

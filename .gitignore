@@ -21,6 +21,9 @@ apps/android/*.apk
 
 # Local sensitive test data
 /local/
+testdata/onboarding/*.yaml
+!testdata/onboarding/*.example.yaml
+!testdata/onboarding/etb_cases.yaml
 *.local.yaml
 *.local.yaml.bak
 *.secret.yaml

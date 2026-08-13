@@ -6,6 +6,11 @@ Resource    ../../../locators/android/onboarding/id_card_camera_capture_locators
 *** Variables ***
 ${ID_CARD_CAMERA_TIMEOUT}    10s
 ${CAMERA_NAVIGATE_SCRIPT}    ${CURDIR}/../../../tools/emulator/navigate_camera.py
+# shutter is a plain ViewGroup (no resource-id/content-desc); accessibility_id=Take photo is its
+# NON-clickable text label (resource-id=text) sitting below it. 540,2039 is the proven shutter tap
+# Bounds are based on the approved committed mock-card runtime layout. Replace with a stable testID when available.
+${ID_CARD_SHUTTER_X}    540
+${ID_CARD_SHUTTER_Y}    2039
 
 *** Keywords ***
 Wait Until ID Card Camera Capture Screen Is Displayed
@@ -25,13 +30,10 @@ Tap Take Photo
     Log    [ID_CARD_CAMERA] Take photo tapped
 
 Capture ID Card Photo
-    [Documentation]    adb tap fallback when Click Element doesn't trigger RN photo capture.
+    [Documentation]    Tap the shutter ViewGroup to capture. accessibility_id=Take photo is a NON-clickable
+    ...                text label (resource-id=text) below the shutter; the real shutter is a plain ViewGroup at 540,2039.
     ${on_camera}=    Run Keyword And Return Status    Page Should Contain Element    accessibility_id=Take photo    5s
     IF    ${on_camera}
-        ${loc}=    Get Element Location    accessibility_id=Take photo
-        ${sz}=    Get Element Size    accessibility_id=Take photo
-        ${cx}=    Evaluate    int($loc['x'] + $sz['width'] / 2)
-        ${cy}=    Evaluate    int($loc['y'] + $sz['height'] / 2)
-        Execute Adb Shell    input    tap    ${cx}    ${cy}
-        Log    [ID_CARD_CAMERA] Photo captured via adb tap at ${cx},${cy}
+        Execute Adb Shell    input    tap    ${ID_CARD_SHUTTER_X}    ${ID_CARD_SHUTTER_Y}
+        Log    [ID_CARD_CAMERA] Shutter tapped via adb at ${ID_CARD_SHUTTER_X},${ID_CARD_SHUTTER_Y}
     END

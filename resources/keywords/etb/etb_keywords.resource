@@ -6,6 +6,11 @@ Resource            ../../keywords/common_onboarding/common_onboarding_keyword.r
 Resource            ../../pages/etb/check_dopa_fill_laser_code_page.resource
 Resource            ../../pages/etb/mobile_otp_page.resource
 Resource            ../../pages/etb/setup_pin_page.resource
+Resource            ../../pages/etb/rgi_popup_page.resource
+Resource            ../../pages/etb/full_screen_rgi_page.resource
+Resource            ../../pages/etb/product_selection_page.resource
+Resource            ../../pages/etb/three_c_page.resource
+
 
 
 *** Keywords ***
@@ -27,6 +32,7 @@ Complete ETB Onboarding
     Wait Until Check DOPA Fill Laser Code Is Displayed
     Mark Health Checkpoint    CHECK_DOPA_FILL_LASER_CODE_VISIBLE
     Input Laser Code    ${laser_code}
+    Log    LASER_INPUT = COMPLETED
     Wait Until Element Is Visible    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}    ${NCBD_LOADING_TIMEOUT}
     Click Element    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}
     Mark Health Checkpoint    CHECK_DOPA_FILL_LASER_CODE_COMPLETED
@@ -35,6 +41,7 @@ Complete ETB Onboarding
     Wait Until Mobile OTP Screen Is Displayed
     Mark Health Checkpoint    MOBILE_OTP_VISIBLE
     Input OTP    ${otp}
+    Log    OTP_INPUT = COMPLETED
     Mark Health Checkpoint    MOBILE_OTP_COMPLETED
 
     ${screen}=    Handle Post OTP Transition
@@ -58,11 +65,28 @@ Complete ETB Onboarding
     Mark Health Checkpoint    SETUP_PIN_VISIBLE
     Set Up PIN    ${pin}
     Set Up PIN    ${pin}    re_pin=${True}
-    Wait Until Page Does Not Contain Element    ${RE_ENTER_PIN_TITLE_TEXT}    ${NCBD_LOADING_TIMEOUT}
-    Wait Until Page Does Not Contain Element    ${LAYER_LOADING}    ${NCBD_LOADING_TIMEOUT}
+    Log    PIN_INPUT = COMPLETED
+    ${destination}=    Wait Until Keyword Succeeds    ${NCBD_LOADING_TIMEOUT}    500ms
+    ...    ETB Post PIN Destination Should Be Displayed
+    IF    '${destination}' == 'PRODUCT_SELECTION'
+        Mark Health Checkpoint    PRODUCT_SELECTION_VISIBLE
+        RETURN    ${TRUE}
+    END
     Mark Health Checkpoint    SETUP_PIN_COMPLETED
-    Wait Until Element Is Visible    ${LABEL_ETB_FINISHED}    ${NCBD_LOADING_TIMEOUT}
     Mark Health Checkpoint    SIGN_UP_RESULT_SUCCESS_VISIBLE
     Click Element    ${BUTTON_LETGO}
     Mark Health Checkpoint    SIGN_UP_RESULT_SUCCESS_COMPLETED
     RETURN    ${TRUE}
+
+ETB Post PIN Destination Should Be Displayed
+    ${product_visible}=    Run Keyword And Return Status
+    ...    Product Selection Screen Should Be Displayed
+    IF    ${product_visible}
+        RETURN    PRODUCT_SELECTION
+    END
+    ${finished_visible}=    Run Keyword And Return Status
+    ...    Element Should Be Visible    ${LABEL_ETB_FINISHED}
+    IF    ${finished_visible}
+        RETURN    REGISTRATION_SUCCESS
+    END
+    Fail    ETB_POST_PIN_DESTINATION_NOT_VISIBLE
