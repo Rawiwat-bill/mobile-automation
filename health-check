@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+    export PYTHON_BIN="$ROOT/.venv/bin/python"
+fi
+MODE="${1:---dryrun}"
+if [[ "$MODE" != "--dryrun" ]]; then
+    if [[ -z "${HEALTH_CHECK_TESTDATA:-}" ]]; then
+        printf 'HEALTH_CHECK_TESTDATA must point to an approved local YAML profile.\n' >&2
+        exit 3
+    fi
+    export ROBOT_OPTIONS="--variable HEALTH_CHECK_TESTDATA:$HEALTH_CHECK_TESTDATA ${ROBOT_OPTIONS:-}"
+fi
+exec "$ROOT/tools/ci/run_health_check.sh" "$MODE"
