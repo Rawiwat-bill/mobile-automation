@@ -40,6 +40,10 @@ testdata/onboarding/*.yaml
 # Tool config
 opencode.json
 
+# Local documentation and AI/AIOS knowledge
+/docs/
+/knowledge/
+
 # Logs
 *.log
 
