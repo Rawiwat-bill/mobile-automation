@@ -1,0 +1,40 @@
+# PPI test data (committed = schema/example เท่านั้น)
+#
+# ไฟล์นี้ใช้เป็น Robot YAML variable file ได้โดยตรง:
+#     Variables    ../../../testdata/ppi/ppi_cases.local.yaml
+#
+# ค่าทุกตัวในไฟล์นี้เป็น placeholder
+# ค่าที่ใช้รันจริงต้องอยู่ใน ppi_cases.local.yaml ซึ่งถูก gitignore
+# โครงสร้าง key ของสองไฟล์ต้องเหมือนกันทุกประการ
+
+PPI_UI_TIMEOUT: "20s"
+
+PPI_UC_001:
+  description: "Transfer own account - happy path"
+  source_account_label: "<SOURCE_ACCOUNT_LABEL>"
+  amount: "100.00"
+  currency: "THB"
+  expected_status: "SUCCESS"
+
+PPI_UC_002:
+  description: "Transfer amount exceeds available balance"
+  source_account_label: "<SOURCE_ACCOUNT_LABEL>"
+  amount: "999999999.00"
+  currency: "THB"
+  expected_error_code: "PPI-E-INSUFFICIENT-BALANCE"
+
+PPI_UC_003:
+  description: "Bill payment - happy path"
+  source_account_label: "<SOURCE_ACCOUNT_LABEL>"
+  biller_label: "<BILLER_LABEL>"
+  amount: "250.00"
+  currency: "THB"
+  expected_status: "SUCCESS"
+
+PPI_API:
+  transfer_path: "/transfers"
+  payment_path: "/payments"
+  account_path: "/accounts"
+  source_account: "<SOURCE_ACCOUNT_REFERENCE>"
+  target_account: "<TARGET_ACCOUNT_REFERENCE>"
+  biller_id: "<BILLER_ID>"
