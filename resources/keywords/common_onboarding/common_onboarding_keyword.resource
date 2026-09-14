@@ -19,8 +19,9 @@ Common Onboarding Flow
     Switch Landing Language To English
     Tap Landing Ready Button
     Allow Android Permission If Visible
+    Wait For Landing Destination    ${TERMS_AND_CONDITIONS_WEBVIEW}    ${NCBD_LOADING_TIMEOUT}
     Mark Health Checkpoint    LANDING_COMPLETED
-    
+
     Wait Until Terms And Conditions Screen Is Displayed
     Mark Health Checkpoint    TERMS_AND_CONDITIONS_VISIBLE
     Scroll Down Terms And Conditions
@@ -41,8 +42,14 @@ Common Onboarding Flow
     Log    MOBILE_INPUT = COMPLETED
     Wait Until Fields Are Blurred
     ${profile_result}=    Tap Profile Next
-    IF    '${profile_result}' == 'SERVICE_ERROR_VISIBLE'
+    IF    '${profile_result}' == 'GOD-013'
+        RETURN    GOD-013
+    END
+    IF    '${profile_result}' == 'AJI-001'
         RETURN    AJI-001
+    END
+    IF    '${profile_result}' == 'RGI-104'
+        RETURN    RGI-104
     END
     Mark Health Checkpoint    TELL_US_ABOUT_YOU_COMPLETED
     RETURN    NEXT

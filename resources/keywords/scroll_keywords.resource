@@ -17,6 +17,7 @@ ${CONSENT_BIG_FLING_DURATION_MS}      45
 ${CONSENT_BIG_FLING_SHORT_PAUSE_S}    0.2
 ${CONSENT_BIG_FLING_LONG_PAUSE_S}     0.6
 ${CONSENT_BIG_FLING_LONG_PAUSE_EVERY}  10
+${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}  ข้าพเจ้าได้อ่านและทำความเข้าใจกับข้อตกลงการใช้บริการ
 
 
 *** Keywords ***
@@ -136,7 +137,7 @@ Scroll Down Consent Terms With Big Fling
     ${prev_hash}=    Set Variable    init
     ${stall_count}=    Set Variable    0
     ${source}=    Get Source
-    ${bottom_reached}=    Run Keyword And Return Status    Should Contain    ${source}    I have read and understood
+    ${bottom_reached}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
     FOR    ${index}    IN RANGE    ${max_swipes}
         IF    ${bottom_reached}
             BREAK
@@ -145,7 +146,7 @@ Scroll Down Consent Terms With Big Fling
         ${swipe_count}=    Evaluate    ${swipe_count} + 1
         Sleep    ${CONSENT_BIG_FLING_SHORT_PAUSE_S}s
         ${source}=    Get Source
-        ${bottom_reached}=    Run Keyword And Return Status    Should Contain    ${source}    I have read and understood
+        ${bottom_reached}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
         Log    [CONSENT] fling_swipe=${swipe_count} bottom_reached=${bottom_reached}
         IF    ${bottom_reached}
             BREAK

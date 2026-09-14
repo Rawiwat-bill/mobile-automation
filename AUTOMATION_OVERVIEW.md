@@ -6,7 +6,7 @@
 
 - Framework: Robot Framework + AppiumLibrary + Appium UiAutomator2
 - Platform: Android-first
-- Environment: DEV
+- Environment: ETB รองรับ DEV / SIT / DEV_MOCK; UAT ยังไม่ configured
 - Application: React Native
 - Supported execution: local Android emulator และ real device
 - Test design: Page Object, locator แยกตาม platform/screen, test data แยกจาก test logic
@@ -50,7 +50,7 @@ Canonical suite: `tests/android/etb/etb_regression.robot`
 
 เลือก run ได้ทั้ง case, tag, smoke และ full regression ผ่าน `./run etb`
 
-ก่อนและหลัง ETB case มี state preparation/cleanup สำหรับ CIS และบาง case มี PDPA preparation ตาม case contract การรันจริงจึงขึ้นกับ DEV backend และ approved profile ไม่ใช่ UI อย่างเดียว
+ก่อนและหลัง ETB case มี state preparation/cleanup สำหรับ CIS และบาง case มี PDPA preparation ตาม case contract การรันจริงจึงขึ้นกับ environment-specific readiness ไม่ใช่ UI อย่างเดียว: DEV ตรวจ CIS transport/backend, SIT ใช้ external-prepared CIS confirmation และ DEV_MOCK ใช้ mock-build readiness contract
 
 ### NTB
 
@@ -128,30 +128,34 @@ reports/
 - ห้าม log Citizen ID, phone, account, password, OTP, token หรือ certificate
 - Screenshot/XML/log/report ต้องตรวจและ mask ก่อนแชร์
 - NTB/health check รับ profile path ผ่าน environment variable
-- ETB Robot suite โหลด profile จาก `testdata/onboarding/etb_cases.local.yaml` ตาม conventional path ปัจจุบัน
+- ETB runner ใช้ `ETB_CASE_PROFILES` เป็น runtime profile source; ถ้าไม่กำหนดจะ default ไปที่ `testdata/onboarding/etb_cases.local.yaml`, resolve เป็น absolute path และส่ง source เดียวกันให้ Robot; real run ต้องใช้ approved local file ที่อ่านได้
+- ETB runtime evidence scope ใช้ `ETB_RUN_ID` + canonical case id เพื่อแยกหลักฐานข้าม run/case และยังอยู่ภายใต้ private-local artifact policy
 
 ## Current support matrix
 
 | Area | Status |
 |---|---|
-| Android DEV | Supported ตาม flow/ข้อจำกัดด้านล่าง |
+| Android DEV | ETB configured; canonical APK `apps/android/app-dev.apk`; DEV emulator `emulator-5554`; real runs require environment/device/CIS readiness |
+| Android SIT | ETB configured/gated; canonical APK `apps/android/app-sit-mmplot2.apk`; SIT emulator `emulator-5556`; mobile runtime opens only after external CIS readiness confirmation |
+| DEV_MOCK | Diagnostic/mock ETB lane; requires installed approved mock target + `CIS_READINESS_SOURCE=MOCK_BUILD_NOT_REQUIRED`; runner does not install APK |
 | macOS runner | Supported |
 | Windows runner | Git Bash path documented; clean-machine validation pending |
-| Android emulator | ETB ตาม case scope และ syntax dry-run; ห้าม NTB/full health check ที่แตะ OCR capture |
-| Android real device | Required สำหรับ NTB, full health check, OCR capture และ post-capture |
+| Android emulator | ETB according to lane/case scope and dry-run; NTB/full health check OCR capture remains real-device-only |
+| Android real device | Required for NTB, full health check, OCR capture and post-capture |
 | iOS | Not implemented |
-| SIT/UAT | Not configured |
+| UAT | Not configured |
+| Reproducible mobile dependency baseline | `requirements-mobile.lock.txt` exists as exact tested snapshot; F17 Git-index/clean-candidate proof passes, while independent clean-machine fresh-install proof remains pending |
 | Parallel execution | Not configured |
 | Device cloud | Not integrated |
-| CI/CD | Health-check script มีแล้ว แต่ pipeline integration ยังไม่ complete |
+| CI/CD | Health-check script exists; pipeline integration not complete |
 
 ## Known limitations
 
 1. Emulator camera ไม่มี usable frame จึงไม่รองรับ OCR capture จริง
 2. DOB picker บน real device ยังต้องการ runtime validation เพิ่ม
-3. DEV backend/VPN/CIS/PDPA state อาจทำให้ผลเป็น environment blocker
-4. App package/activity และ environment configuration ยังผูกกับ DEV
-5. Runtime dependencies ใน `requirements.txt` เป็น minimum ranges ไม่ใช่ full lock
+3. Environment readiness ยังทำให้ผลเป็น blocker ได้: DEV = VPN/CIS/backend, SIT = external CIS confirmation, DEV_MOCK = approved mock context
+4. DEV/SIT ใช้ package และ canonical APK แยกกัน; UAT ยังไม่ configured และ DEV_MOCK พึ่ง preinstalled approved mock target
+5. `requirements.txt` ยังเป็น minimum-range install contract; `requirements-mobile.lock.txt` เป็น exact tested snapshot และ F17 Git-index/clean-candidate proof ปิดแล้ว (`F17_CLEAN_CHECKOUT_PROOF=PASS`) แต่ independent clean-machine fresh-install proof ยัง pending
 6. Report และ investigation evidence อาจมีข้อมูลอ่อนไหว ต้อง sanitize ก่อนแชร์
 
 ## Definition of a trustworthy result

@@ -3,6 +3,8 @@ Library     AppiumLibrary
 Library     Collections
 Library     String
 Library     OperatingSystem
+Library     DateTime
+Library     ../../../libraries/profile_exit_evidence.py
 Resource    ../../../locators/android/onboarding/profile_screen_locators.resource
 Resource    ../../keywords/dob_stability_keywords.resource
 Resource    ../../keywords/android_wheel_picker.resource
@@ -109,8 +111,30 @@ Tap Date Of Birth Field
     Click Element                    ${PROFILE_DOB_INPUT}
     Log    [PROFILE] DOB field clicked
 
+Observe Profile DOB Boundary
+    [Documentation]    Verify Profile DOB markers from this resource without depending on a caller-only keyword.
+    [Arguments]    ${point}
+    ${source}=    Get Source
+    ${dob_container}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_textInputDob-container
+    ${dob_input}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_textInputDob
+    ${mobile_container}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_textInputMobileNumber-container
+    ${next_button}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_buttonNext
+    ${activity}=    Get Activity
+    ${appium_library}=    Get Library Instance    AppiumLibrary
+    ${package}=    Evaluate    $appium_library._current_application().current_package
+    Log    [PROFILE_BOUNDARY] ${point} dob-container=${dob_container} dob=${dob_input} mobile-container=${mobile_container} next=${next_button} package=${package} activity=${activity}    WARN
+    IF    not ${dob_container} or not ${dob_input}
+        ${profile_markers}=    Evaluate    ${mobile_container} or ${next_button}
+        IF    ${profile_markers}
+            Fail    PROFILE_DOB_MARKER_LOST_AFTER_KEYBOARD_DISMISS
+        ELSE
+            Fail    PROFILE_STATE_CHANGED_AFTER_KEYBOARD_DISMISS
+        END
+    END
+
 Input Date Of Birth
     [Arguments]    ${date_of_birth}
+    Observe Profile DOB Boundary    P2
     Start DOB Interaction
     ${parts}=    Split String    ${date_of_birth}    -
     ${day}=    Set Variable    ${parts[0]}
@@ -182,23 +206,55 @@ Tap Profile Next Button
     ${next_enabled}=    Run Keyword And Return Status    Element Should Be Enabled    ${PROFILE_NEXT_BUTTON_CONTAINER}
     Log    [PROFILE] Next visible/enabled: ${next_visible}/${next_enabled}
     ${source_before_next}=    Get Source
+    Run Keyword And Ignore Error    Capture Profile Exit Evidence Point From Active Session    P0_before_profile_next
     Tap Profile Next Using Adb
+    Run Keyword And Ignore Error    Capture Profile Exit Evidence Point From Active Session    P1_after_profile_next
     ${transition_result}=    Wait Until Keyword Succeeds    10s    500ms
     ...    Observe Profile Next Transition    ${source_before_next}
+    Run Keyword And Ignore Error    Capture Profile Exit Evidence Point From Active Session    P2_first_recognized_destination
+    Run Keyword And Ignore Error    Write Profile Exit Evidence Summary    ${transition_result}
     RETURN    ${transition_result}
+
+Capture Profile Exit Evidence Point
+    [Arguments]    ${point_name}
+    ${evidence_dir}=    Set Variable    ${OUTPUT DIR}/profile_exit_evidence
+    Persist Profile Exit Point    ${point_name}    ${evidence_dir}
+
+Capture Profile Exit Evidence Point From Active Session
+    [Arguments]    ${point_name}
+    Capture Profile Exit Evidence Point    ${point_name}
+
+Write Profile Exit Evidence Summary
+    [Arguments]    ${transition_result}
+    ${evidence_dir}=    Set Variable    ${OUTPUT DIR}/profile_exit_evidence
+    Create Directory    ${evidence_dir}
+    ${appium_library}=    Get Library Instance    AppiumLibrary
+    ${package}=    Evaluate    $appium_library._current_application().current_package
+    ${activity}=    Get Activity
+    Persist Profile Exit Evidence Summary    ${evidence_dir}    ${transition_result}    ${package}    ${activity}
 
 Observe Profile Next Transition
     [Arguments]    ${source_before_next}
     ${profile_visible}=    Run Keyword And Return Status    Element Should Be Visible    ${PROFILE_TITLE_TEXT}
-    ${service_unavailable}=    Run Keyword And Return Status
-    ...    Page Should Contain Element    xpath=//*[@text="Service is not available now"]
-    IF    ${service_unavailable}
-        RETURN    SERVICE_ERROR_VISIBLE
+    ${source_after_next}=    Get Source
+    ${god_013_visible}=    Run Keyword And Return Status
+    ...    Should Contain    ${source_after_next}    GOD-013
+    IF    ${god_013_visible}
+        RETURN    GOD-013
+    END
+    ${aji_001_visible}=    Run Keyword And Return Status
+    ...    Should Contain    ${source_after_next}    AJI-001
+    IF    ${aji_001_visible}
+        RETURN    AJI-001
+    END
+    ${rgi_104_visible}=    Run Keyword And Return Status
+    ...    Should Contain    ${source_after_next}    RGI-104
+    IF    ${rgi_104_visible}
+        RETURN    RGI-104
     END
     IF    not ${profile_visible}
         RETURN    PROFILE_LEFT_OR_NEXT_STATE_VISIBLE
     END
-    ${source_after_next}=    Get Source
     ${source_changed}=    Evaluate    $source_after_next != $source_before_next
     IF    ${source_changed}
         ${loading_visible}=    Run Keyword And Return Status
@@ -210,7 +266,8 @@ Observe Profile Next Transition
     Fail    PROFILE_NEXT_LOADING_TIMEOUT
 
 Tap Profile Next
-    Tap Profile Next Button
+    ${transition_result}=    Tap Profile Next Button
+    RETURN    ${transition_result}
 
 Select DOB Picker Value
     [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}

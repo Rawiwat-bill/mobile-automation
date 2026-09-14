@@ -1,6 +1,6 @@
 *** Variables ***
 ${SETUP_PIN_TITLE_TEXT}         xpath=//android.widget.TextView[@resource-id='screenPinInput_headerText']
-${RE_ENTER_PIN_TITLE_TEXT}      xpath=//android.widget.TextView[@content-desc="Re-enter PIN to confirm"]
+${RE_ENTER_PIN_TITLE_TEXT}      xpath=//*[contains(@resource-id,"screenReEnterPinInput_keyPad0")]
 
 ${SETUP_PIN_KEY_PIN}            xpath=//android.widget.TextView[@text="{{pin}}"]
 

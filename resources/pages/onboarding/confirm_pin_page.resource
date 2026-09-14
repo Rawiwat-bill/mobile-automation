@@ -20,8 +20,13 @@ Enter Confirm PIN Using Custom Keypad
     Should Be Equal As Integers    ${count}    6    Confirm PIN must be exactly 6 digits
     FOR    ${index}    ${digit}    IN ENUMERATE    @{digits}
         ${locator}=    Get From Dictionary    ${CONFIRM_PIN_KEYPAD}    ${digit}
-        Click Element    ${locator}
+        TRY
+            ${element}=    Get WebElement    ${locator}
+            Click Element    ${element}
+        EXCEPT    *StaleElementReferenceException*
+            ${element}=    Get WebElement    ${locator}
+            Click Element    ${element}
+        END
         Log    [PIN] Confirm digit ${index + 1}/6    WARN
-        Sleep    0.3s
     END
     Log    [PIN] Confirm PIN entry complete    WARN

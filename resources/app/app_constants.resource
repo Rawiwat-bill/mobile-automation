@@ -1,10 +1,13 @@
 *** Variables ***
 ${APP_PACKAGE}              com.bangkokbank.blue.dev
 ${APP_ACTIVITY}             com.bangkokbank.blue.MainActivity
+${ANDROID_RESOLVER_SIT_PACKAGE}    com.bangkokbank.blue.sit
+${ANDROID_RESOLVER_DEV_PACKAGE}    com.bangkokbank.blue.dev
+&{ANDROID_RESOLVER_TARGET_LABELS}    com.bangkokbank.blue.sit=NCBD-SIT    com.bangkokbank.blue.dev=NCBD-DEV
 ${APPIUM_URL}               http://127.0.0.1:4723
 ${DEVICE_NAME}              Android Emulator
 ${DEVICE_UDID}              ${EMPTY}
-${APK_PATH}                 ${CURDIR}/../../apps/android/app.apk
+${APK_PATH}                 ${CURDIR}/../../apps/android/app-dev.apk
 
 ${NCBD_LOADING_TIMEOUT}     40s
 

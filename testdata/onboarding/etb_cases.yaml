@@ -5,9 +5,24 @@ source:
   scope: TC-ETB-001..TC-ETB-013
 execution_lifecycle:
   preparation:
-    cis_clear: REQUIRED
+    cis_clear: ENVIRONMENT_AWARE
   cleanup:
-    cis_clear: REQUIRED
+    cis_clear: ENVIRONMENT_AWARE
+domains:
+  cis:
+    DEV:
+      preparation_owner: AUTOMATION
+      clear_allowed: according_to_existing_DEV_policy
+    SIT:
+      preparation_owner: EXTERNAL_TEAM
+      clear_allowed: false
+      post_test_delete_allowed: false
+  pdpa:
+    DEV:
+      preparation: APPROVED_SHARED_ADAPTER
+    SIT:
+      preparation: APPROVED_SHARED_ADAPTER
+    environment_specific_logic_required: false
 cases:
   etb_tc_001:
     tc_id: TC-ETB-001
@@ -20,6 +35,7 @@ cases:
     - pdpa
     expected_branch: positive path; PDPA visibility conflicts between title and expected
       result
+    product_selection_policy: REQUIRED
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -50,13 +66,14 @@ cases:
     - positive
     - pdpa
     expected_branch: positive path with PDPA Clause 6 displayed and accepted
+    product_selection_policy: REQUIRED
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
     terminal_state: registration success/control screen
     cleanup_required: true
-    readiness: HOLD_PDPA_RESET_CURL
-    execution_status: HOLD_PDPA_RESET_CURL
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
     clarification_required: []
     official_expected_result: "Display \n- PDPA screen\n- Select Product screen \n\
       - Pre-SET Success screen\n- Intoduction 3C\n- Control screen : 3C"
@@ -68,7 +85,7 @@ cases:
     prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
     runtime_status: RUNTIME_EVIDENCE_REQUIRED
     pdpa_reset_required: true
-    pdpa_reset_blocker: PDPA_RESET_CURL_PENDING
+    pdpa_reset_blocker: null
     execution_lifecycle:
       preparation:
         cis_clear: REQUIRED
@@ -86,6 +103,7 @@ cases:
     - product-selection
     - clarification
     expected_branch: no active Savings account; Product Selection skip/display conflict
+    product_selection_policy: MUST_SKIP
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -116,6 +134,7 @@ cases:
     - product-selection
     expected_branch: existing Saving and e-Saving accounts; Product Selection account
       display
+    product_selection_policy: REQUIRED
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -393,9 +412,9 @@ policy:
   - Test Case Name
   prepared_profile_policy: PREPARED_PROFILE_ASSUMED_READY unless runtime evidence
     reclassifies it
-  pdpa_reset_status: PDPA_RESET_CURL_PENDING
-  pdpa_reset_remark: Waiting for the team-provided curl command to delete or reset
-    PDPA state.
-  execution_policy: TC-ETB-002 is the only case currently held; TC-ETB-001 and
-    TC-ETB-003..TC-ETB-013 are approved to proceed. Clarification notes are
-    informational and non-blocking.
+  pdpa_reset_status: APPROVED_LOCAL_ADAPTER
+  pdpa_reset_remark: Approved local PDPA Web Forms preparation adapter is configured
+    and statically validated.
+  execution_policy: TC-ETB-001..TC-ETB-013 are approved to proceed. Clarification
+    notes are informational and non-blocking; runtime evidence may still reclassify
+    a prepared profile when the expected branch is not reached.

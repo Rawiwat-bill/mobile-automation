@@ -7,16 +7,19 @@ Resource         ../../../resources/keywords/api_capture_keywords.resource
 Resource         ../../../resources/keywords/health_check_keywords.resource
 Resource         ../../../resources/keywords/dob_stability_keywords.resource
 Library          ../../../libraries/config_loader.py
+Library          ../../../libraries/robot_output_sanitizer.py
 Library          OperatingSystem
 
 Suite Setup      Health Check Suite Setup
 Suite Teardown   Health Check Suite Teardown
 
 *** Variables ***
-${HEALTH_CHECK_TESTDATA}    testdata/onboarding/ntb.local.yaml
+${HEALTH_CHECK_TESTDATA}    ${EMPTY}
 
 *** Keywords ***
 Health Check Suite Setup
+    Should Not Be Empty    ${HEALTH_CHECK_TESTDATA}    HEALTH_CHECK_TESTDATA must point to an approved local YAML profile.
+    File Should Exist    ${HEALTH_CHECK_TESTDATA}    HEALTH_CHECK_TESTDATA file does not exist.
     Initialize DOB Stability Tracking
     Start Health Check
     Open Mobile Application
@@ -46,11 +49,12 @@ Health Check Suite Teardown
 *** Keywords ***
 Capture After ID Card Photo Evidence
     Sleep    3s
-    Create Directory    reports/investigation/after_id_card_photo
-    Capture Page Screenshot    reports/investigation/after_id_card_photo/screenshot.png
+    ${evidence_dir}=    Set Variable    ${OUTPUT_DIR}/private_local/after_id_card_photo
+    Create Directory    ${evidence_dir}
+    Capture Page Screenshot    ${evidence_dir}/screenshot.png
     ${source}=    Get Source
-    Create File    reports/investigation/after_id_card_photo/page_source.xml    ${source}    UTF-8
-    Log    [HC] After ID Card Photo evidence captured to reports/investigation/after_id_card_photo/
+    Create File    ${evidence_dir}/page_source.xml    ${source}    UTF-8
+    Log    [HC] Private-local after-ID-card evidence captured.    INFO
 
 *** Test Cases ***
 E2E Onboarding Health Check
@@ -60,5 +64,7 @@ E2E Onboarding Health Check
     ${previous_log_level}=    Set Log Level    NONE
     ${data}=    Load YAML    ${HEALTH_CHECK_TESTDATA}
     Set Log Level    ${previous_log_level}
-    Complete Common Onboarding    ${data['profile']['citizen_id']}    ${data['profile']['date_of_birth']}    ${data['profile']['mobile_number']}
+    ${common_result}=    Complete Common Onboarding    ${data['profile']['citizen_id']}    ${data['profile']['date_of_birth']}    ${data['profile']['mobile_number']}
+    Should Be Equal As Strings    ${common_result}    COMMON_ONBOARDING_COMPLETED
+    ...    COMMON_ONBOARDING_BLOCKED=${common_result}
     Capture After ID Card Photo Evidence

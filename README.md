@@ -4,7 +4,7 @@
 
 ภาพรวม coverage, flow, architecture และข้อจำกัดรวมอยู่ที่ [AUTOMATION_OVERVIEW.md](AUTOMATION_OVERVIEW.md)
 
-> ขอบเขตปัจจุบัน: Android + DEV เท่านั้น ยังไม่รองรับ iOS, SIT หรือ UAT เส้นทาง Windows Git Bash มีคู่มือตาม runtime ปัจจุบัน แต่ยังรอ clean-machine validation บน Windows
+> ขอบเขตปัจจุบัน: Android automation โดย ETB runner เลือก environment ผ่าน `ETB_ENVIRONMENT=DEV`, `ETB_ENVIRONMENT=SIT` หรือ `ETB_ENVIRONMENT=DEV_MOCK`; ยังไม่รองรับ iOS หรือ UAT เส้นทาง Windows Git Bash มีคู่มือตาม runtime ปัจจุบัน แต่ยังรอ clean-machine validation บน Windows
 
 ## 1. สิ่งที่ต้องขอก่อนเริ่ม
 
@@ -33,7 +33,7 @@
 | UiAutomator2 driver | 7.x | 7.6.1 |
 | Android SDK Platform-Tools | ต้องมี `adb` | 37.0.0 |
 
-ไฟล์ `requirements.txt` ระบุ minimum version ไม่ได้ lock ทุก transitive dependency ตารางข้างบนจึงแยก “ข้อกำหนด” กับ “เวอร์ชันที่ตรวจแล้ว” ให้ชัดเจน
+ไฟล์ `requirements.txt` ระบุ minimum version สำหรับ install ปกติ ส่วน `requirements-mobile.lock.txt` เป็น exact snapshot จาก `.venv` ที่ใช้ตรวจ mobile automation รอบปัจจุบัน (รวม transitive packages) เพื่อเป็น tested reproducibility baseline ปัจจุบัน F17 Git-index proof ผ่านแล้ว (`F17_CLEAN_CHECKOUT_PROOF=PASS`): transfer set จาก Git index สามารถสร้าง clean candidate และ `TC-ETB-001 --dry-run` ผ่านได้ อย่างไรก็ตาม independent clean-machine fresh-install proof ยังไม่ได้รัน จึงยังไม่ควรอ้างว่า dependency setup ถูกพิสูจน์บนเครื่องใหม่ครบถ้วน
 
 เอกสารต้นทาง: [Appium requirements](https://appium.io/docs/en/latest/quickstart/requirements/), [Appium installation](https://appium.io/docs/en/latest/quickstart/install/), [UiAutomator2 setup](https://appium.io/docs/en/latest/quickstart/uiauto2-driver/), [Android SDK Manager](https://developer.android.com/tools/sdkmanager), [Robot Framework installation](https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#installation-instructions)
 
@@ -192,25 +192,24 @@ appium driver doctor uiautomator2
 
 ## 6. เตรียม APK และอุปกรณ์
 
-วาง approved APK ที่:
+ETB ใช้ canonical APK แยกตาม environment:
 
 ```text
-apps/android/app.apk
+DEV: apps/android/app-dev.apk
+SIT: apps/android/app-sit-mmplot2.apk
 ```
 
-เปิด emulator หรือเชื่อม Android device ที่เปิด Developer Options และ USB debugging แล้วตรวจว่าเห็นอุปกรณ์เพียงเครื่องเป้าหมาย:
+`DEV_MOCK` ไม่ติดตั้ง APK จาก runner; ต้องมี approved mock target ติดตั้งอยู่ก่อน และต้องตั้ง `CIS_READINESS_SOURCE=MOCK_BUILD_NOT_REQUIRED`
+
+เปิด emulator หรือเชื่อม Android device ที่เปิด Developer Options และ USB debugging แล้วตรวจ serial ที่จะใช้:
 
 ```bash
 adb devices
 ```
 
-สถานะต้องเป็น `device` ไม่ใช่ `unauthorized` หรือ `offline` จากนั้นติดตั้ง APK:
+สถานะเป้าหมายต้องเป็น `device` ไม่ใช่ `unauthorized` หรือ `offline` จากนั้นตั้ง `DEVICE_UDID` ให้ตรงกับ environment/device ที่ต้องการ เช่น DEV emulator `emulator-5554` หรือ SIT emulator `emulator-5556`. Runner ส่ง serial นี้เข้า ADB/Robot runtime และใช้ target guard ก่อน CIS/package preparation. สำหรับ `./run etb --dry-run` ไม่ต้องตั้ง `DEVICE_UDID` เพราะเป็น syntax/selection-only และจะไม่เข้า device/backend preflight
 
-```bash
-adb install -r apps/android/app.apk
-```
-
-Runner ปัจจุบันยังไม่ forward device serial จาก environment variable เข้า Robot command ดังนั้นก่อนใช้ `./run` ให้เหลือ emulator/device เป้าหมายที่ online เพียงเครื่องเดียว
+เมื่อรันจริง DEV/SIT runner จะตรวจ package/activity, ลบเฉพาะ competing package บน device เป้าหมาย และติดตั้ง canonical APK เฉพาะเมื่อ target package ยังไม่มี; ไม่ต้อง `adb install` ด้วย path กลางเอง
 
 ## 7. เตรียม test data
 
@@ -221,7 +220,7 @@ testdata/onboarding/etb_cases.local.yaml
 testdata/onboarding/ntb.local.yaml
 ```
 
-ETB runner ปัจจุบันโหลด profile จาก conventional path `testdata/onboarding/etb_cases.local.yaml` ภายใน Robot suite จึงต้องวางไฟล์ที่ path นี้ การ export path อื่นยังไม่สามารถเปลี่ยน path ที่ suite โหลดได้
+ETB ใช้ `ETB_CASE_PROFILES` เป็น runtime profile source. ถ้าไม่กำหนด runner จะ default ไปที่ `testdata/onboarding/etb_cases.local.yaml`; ถ้ากำหนด path อื่น runner จะ resolve เป็น absolute path แล้วส่ง source เดียวกันให้ Robot ทั้ง selector dry-run และ runtime. การรันจริงต้องให้ไฟล์นั้นอ่านได้และเป็น approved local YAML; dry-run ไม่อ่าน profile contents
 
 กำหนด environment variables ใน Terminal/Git Bash เดียวกับที่จะรัน โดยขอ endpoint และ CA bundle ผ่านช่องทางปลอดภัยของทีม ห้ามใส่ค่าจริงใน README หรือ Git:
 
@@ -262,12 +261,22 @@ Appium ต้องพร้อมที่ `http://127.0.0.1:4723` การใ
 
 ### ETB
 
+ตัวอย่าง DEV emulator:
+
 ```bash
-./run etb
-./run etb TC-ETB-013
+ETB_ENVIRONMENT=DEV ANDROID_EXECUTION_TARGET=DIAGNOSTIC_CONTROL DEVICE_UDID=emulator-5554 ./run etb
+ETB_ENVIRONMENT=DEV ANDROID_EXECUTION_TARGET=DIAGNOSTIC_CONTROL DEVICE_UDID=emulator-5554 ./run etb TC-ETB-013
 ./run etb --tag rgi
 ./run etb --smoke
 ```
+
+ตัวอย่าง SIT emulator ใช้ `ETB_ENVIRONMENT=SIT` และ serial ของ SIT โดย runner จะเปิด external CIS readiness gate ก่อน mobile runtime:
+
+```bash
+ETB_ENVIRONMENT=SIT ANDROID_EXECUTION_TARGET=DIAGNOSTIC_CONTROL DEVICE_UDID=emulator-5556 ./run etb TC-ETB-001
+```
+
+`DEV_MOCK` เป็น diagnostic/mock lane และต้องใช้ approved mock target ที่ติดตั้งอยู่แล้ว พร้อม `CIS_READINESS_SOURCE=MOCK_BUILD_NOT_REQUIRED`; runner จะไม่ติดตั้ง APK ให้ lane นี้
 
 ### NTB
 
@@ -293,7 +302,7 @@ export ROBOT_OPTIONS="--variable HEALTH_CHECK_TESTDATA:$HEALTH_CHECK_TESTDATA"
 bash tools/ci/run_health_check.sh
 ```
 
-ETB full run มี CIS readiness/cleanup gate และต้องเชื่อม DEV backend ส่วน health check ใช้ ADB log capture ที่ผ่าน redaction ตาม framework
+ETB full run มี environment-specific readiness gate: DEV ตรวจ CIS transport/backend, SIT ใช้ external CIS preparation confirmation และ DEV_MOCK ใช้ mock-build readiness contract; ทุก lane ยังใช้ case cleanup policy ตาม contract ส่วน health check ใช้ ADB log capture ที่ผ่าน redaction ตาม framework
 
 ## 10. ผลลัพธ์
 
@@ -320,9 +329,9 @@ ETB full run มี CIS readiness/cleanup gate และต้องเชื่
 | device เป็น `unauthorized` | ปลดล็อก device และกดอนุญาต USB debugging |
 | Appium หา driver ไม่พบ | `appium driver install uiautomator2@7.6.1` |
 | Appium ไม่พร้อม | เปิด server ด้วย `appium --address 127.0.0.1 --relaxed-security` |
-| APK ไม่พบ/เปิดไม่ได้ | ตรวจ `apps/android/app.apk` และขอ APK ที่ตรงกับ DEV configuration |
-| ETB readiness fail | ตรวจ VPN, DEV backend, approved local profile และ CA bundle ของทีม |
-| ETB หา profile ไม่พบ | ต้องวางไฟล์ที่ `testdata/onboarding/etb_cases.local.yaml` |
+| APK ไม่พบ/เปิดไม่ได้ | ตรวจ environment ที่เลือก: DEV ใช้ `apps/android/app-dev.apk`; SIT ใช้ `apps/android/app-sit-mmplot2.apk`; DEV_MOCK ต้องมี approved mock target ติดตั้งอยู่ก่อน |
+| ETB readiness fail | ตรวจ readiness ตาม lane: DEV = VPN/CIS/backend, SIT = external CIS confirmation, DEV_MOCK = mock-build contract |
+| ETB หา profile ไม่พบ | ตรวจ `ETB_CASE_PROFILES`; ถ้าไม่กำหนดจะใช้ `testdata/onboarding/etb_cases.local.yaml` และ real run ต้องอ่านไฟล์ได้ |
 | Emulator ไปต่อหลัง OCR ไม่ได้ | เป็นข้อจำกัดที่ยืนยันแล้ว ให้ใช้ real device |
 | Test fail | เปิด `log.html` ของ run นั้นและส่งเฉพาะหลักฐานที่ mask แล้วให้ทีม Automation |
 

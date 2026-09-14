@@ -1,6 +1,7 @@
 *** Settings ***
 Library     AppiumLibrary
 Library     OperatingSystem
+Library     ../../../libraries/evidence_scope.py
 Resource    ../../../resources/app/app_constants.resource
 Resource    ../../../resources/keywords/scroll_keywords.resource
 Resource    ../../../locators/android/common_onboarding/tell_us_about_you_locators.resource
@@ -68,11 +69,12 @@ Terms Transition Marker Should Be Visible
     Should Be True    ${next_visible} or ${aji_visible}
 
 Capture Terms Transition Evidence
-    [Documentation]    Capture local runtime evidence for an unclassified Terms transition.
+    [Documentation]    Capture private-local runtime evidence for an unclassified Terms transition.
     ${stamp}=    Evaluate    __import__('time').strftime('%Y%m%d_%H%M%S')
-    ${evidence_dir}=    Set Variable    ${OUTPUT DIR}/terms_transition_${stamp}
+    ${private_evidence_dir}=    Resolve Private Evidence Dir    ${OUTPUT DIR}
+    ${evidence_dir}=    Set Variable    ${private_evidence_dir}/terms_transition_${stamp}
     Create Directory    ${evidence_dir}
     Run Keyword And Ignore Error    Capture Page Screenshot    ${evidence_dir}/screen.png
     ${source}=    Get Source
     Create File    ${evidence_dir}/page_source.xml    ${source}    UTF-8
-    Log    [TERMS] Runtime evidence captured: ${evidence_dir}    WARN
+    Log    [TERMS] Private-local runtime evidence captured.    INFO
