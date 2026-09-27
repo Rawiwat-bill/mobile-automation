@@ -5,12 +5,16 @@ Library    OperatingSystem
 Library    ../../libraries/adb_device.py
 Library    ../../libraries/evidence_scope.py
 Resource   app_constants.resource
+Resource   ../keywords/appium_expectations.resource
 
 
 *** Variables ***
-${ANDROID_PERMISSION_ALLOW_BUTTON}    xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_allow_foreground_only_button" or @resource-id="com.android.permissioncontroller:id/permission_allow_button"]
-${ANDROID_PERMISSION_DENY_BUTTON}     xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]
-${ANDROID_PERMISSION_TIMEOUT}         5s
+${ANDROID_PERMISSION_ALLOW_BUTTON}               xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_allow_foreground_only_button" or @resource-id="com.android.permissioncontroller:id/permission_allow_button"]
+${ANDROID_PERMISSION_ALLOW_GENERIC_BUTTON}       xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button"]
+${ANDROID_PERMISSION_ALLOW_FOREGROUND_BUTTON}    xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_allow_foreground_only_button"]
+${ANDROID_PERMISSION_DENY_BUTTON}                xpath=//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]
+${ANDROID_PERMISSION_TIMEOUT}                    5s
+${ANDROID_PERMISSION_MAX_PROMPTS}                4
 ${DEBUG_MODE}                         False
 
 
@@ -36,7 +40,7 @@ Open Mobile Application
     ELSE
         ${etb_case_profiles}=    Get Environment Variable    ETB_CASE_PROFILES    ${EMPTY}
         IF    '${etb_case_profiles}' != ''
-            Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}
+            Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}    settings[enforceXPath1]=${True}
         ELSE
             Set To Dictionary    ${capabilities}    noReset=${no_reset}
         END
@@ -56,30 +60,82 @@ Open Mobile Application
 Allow Android Permission If Visible
     ${visible}=    Run Keyword And Return Status
     ...    Wait Until Element Is Visible    ${ANDROID_PERMISSION_ALLOW_BUTTON}    ${ANDROID_PERMISSION_TIMEOUT}
-    IF    ${visible}
-        Log    PERMISSION_DIALOG_VISIBLE=TRUE
-        ${click_status}=    Run Keyword And Return Status
-        ...    Click Element    ${ANDROID_PERMISSION_ALLOW_BUTTON}
-        IF    not ${click_status}
-            ${already_transitioned}=    Run Keyword And Return Status
-            ...    Permission Transition Should Be Complete
-            IF    not ${already_transitioned}
-                Log    PERMISSION_CLICK_REACQUIRE=TRUE
-                ${reacquired}=    Run Keyword And Return Status
-                ...    Wait Until Element Is Visible    ${ANDROID_PERMISSION_ALLOW_BUTTON}    ${ANDROID_PERMISSION_TIMEOUT}
-                IF    not ${reacquired}
-                    Fail    PERMISSION_TRANSITION_CLICK_FAILED
-                END
-                ${retry_status}=    Run Keyword And Return Status
-                ...    Click Element    ${ANDROID_PERMISSION_ALLOW_BUTTON}
-                IF    not ${retry_status}
-                    Fail    PERMISSION_TRANSITION_CLICK_FAILED_AFTER_REACQUIRE
-                END
-            END
+    IF    not ${visible}
+        RETURN
+    END
+    Log    PERMISSION_DIALOG_VISIBLE=TRUE
+    ${handled_any}=    Set Variable    ${False}
+    FOR    ${permission_index}    IN RANGE    ${ANDROID_PERMISSION_MAX_PROMPTS}
+        ${transitioned}=    Run Keyword And Return Status    Permission Transition Should Be Complete
+        IF    ${transitioned}
+            BREAK
         END
+        ${handled}=    Handle One Android Permission Prompt
+        Should Be True    ${handled}    PERMISSION_PROMPT_NOT_ACTIONABLE
+        ${handled_any}=    Set Variable    ${True}
+        Wait Until Keyword Succeeds
+        ...    3s
+        ...    250ms
+        ...    Permission Transition Or Known Prompt Should Be Ready
+    END
+    IF    ${handled_any}
         Wait Until Keyword Succeeds    10s    500ms    Permission Transition Should Be Complete
         Activate Application    ${APP_PACKAGE}
     END
+
+Handle One Android Permission Prompt
+    ${generic_visible}=    Run Keyword And Return Status
+    ...    Element Should Be Visible Now    ${ANDROID_PERMISSION_ALLOW_GENERIC_BUTTON}
+    IF    ${generic_visible}
+        Click Android Permission Prompt And Prove Advance
+        ...    ${ANDROID_PERMISSION_ALLOW_GENERIC_BUTTON}
+        ...    GENERIC
+        RETURN    ${True}
+    END
+    ${foreground_visible}=    Run Keyword And Return Status
+    ...    Element Should Be Visible Now    ${ANDROID_PERMISSION_ALLOW_FOREGROUND_BUTTON}
+    IF    ${foreground_visible}
+        Click Android Permission Prompt And Prove Advance
+        ...    ${ANDROID_PERMISSION_ALLOW_FOREGROUND_BUTTON}
+        ...    FOREGROUND
+        RETURN    ${True}
+    END
+    RETURN    ${False}
+
+Click Android Permission Prompt And Prove Advance
+    [Arguments]    ${locator}    ${prompt_type}
+    Log    PERMISSION_PROMPT_TYPE=${prompt_type}
+    ${click_status}=    Run Keyword And Return Status    Click Element    ${locator}
+    IF    not ${click_status}
+        Log    PERMISSION_CLICK_REACQUIRE=TRUE
+        ${reacquired}=    Run Keyword And Return Status
+        ...    Wait Until Element Is Visible    ${locator}    ${ANDROID_PERMISSION_TIMEOUT}
+        Should Be True    ${reacquired}    PERMISSION_TRANSITION_CLICK_FAILED
+        Click Element    ${locator}
+    END
+    Wait Until Keyword Succeeds
+    ...    ${ANDROID_PERMISSION_TIMEOUT}
+    ...    250ms
+    ...    Android Permission Locator Should Be Gone
+    ...    ${locator}
+
+Android Permission Locator Should Be Gone
+    [Arguments]    ${locator}
+    ${visible}=    Run Keyword And Return Status    Element Should Be Visible Now    ${locator}
+    Should Not Be True    ${visible}    PERMISSION_PROMPT_DID_NOT_ADVANCE
+
+Permission Transition Or Known Prompt Should Be Ready
+    ${transitioned}=    Run Keyword And Return Status    Permission Transition Should Be Complete
+    IF    ${transitioned}
+        RETURN
+    END
+    ${generic_visible}=    Run Keyword And Return Status
+    ...    Element Should Be Visible Now    ${ANDROID_PERMISSION_ALLOW_GENERIC_BUTTON}
+    ${foreground_visible}=    Run Keyword And Return Status
+    ...    Element Should Be Visible Now    ${ANDROID_PERMISSION_ALLOW_FOREGROUND_BUTTON}
+    Should Be True
+    ...    ${generic_visible} or ${foreground_visible}
+    ...    PERMISSION_PROMPT_NOT_READY
 
 Permission Transition Should Be Complete
     ${activity}=    Get Activity

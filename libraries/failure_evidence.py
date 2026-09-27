@@ -6,12 +6,14 @@ import json
 import re
 import threading
 import uuid
+import subprocess
 from pathlib import Path
 from typing import Any, cast
 
 from robot.libraries.BuiltIn import BuiltIn
 
 from libraries.evidence_scope import resolve_private_evidence_dir
+from libraries.android_adb import resolve_adb_executable
 
 _SENSITIVE_ATTRIBUTE = re.compile(
     r'(?i)(text|content-desc|hint|value|password)="[^"]*"'
@@ -80,6 +82,17 @@ def _bounded_artifact_call(
         return str(state["status"] or "EVIDENCE_CAPTURE_FAILED")
 
 
+def _capture_status(screenshot: str, page_source: str) -> str:
+    statuses = (screenshot, page_source)
+    if statuses == ("PASS", "PASS"):
+        return "COMPLETE"
+    if "PASS" in statuses:
+        return "PARTIAL"
+    if "EVIDENCE_CAPTURE_TIMEOUT" in statuses or "EVIDENCE_CAPTURE_NOT_ATTEMPTED" in statuses:
+        return "TIMEOUT"
+    return "FAILED"
+
+
 def capture_etb_failure_evidence(
     output_dir: str, stem: str = "etb_failure", timeout: float = 3.0
 ) -> str:
@@ -97,22 +110,71 @@ def capture_etb_failure_evidence(
             lambda pending: application.save_screenshot(str(pending)),
             timeout,
         )
-        source = _bounded_artifact_call(
-            "source",
-            evidence_dir / f"{stem}.xml",
-            lambda pending: pending.write_text(
-                _redact_source(str(application.page_source)), encoding="utf-8"
-            ),
-            timeout,
-        )
+        # Do not start a second driver request while a timed-out screenshot
+        # worker may still be alive.  One in-flight Appium request is the
+        # maximum this evidence path permits.
+        if screenshot == "EVIDENCE_CAPTURE_TIMEOUT":
+            source = "EVIDENCE_CAPTURE_NOT_ATTEMPTED"
+        else:
+            source = _bounded_artifact_call(
+                "source",
+                evidence_dir / f"{stem}.xml",
+                lambda pending: pending.write_text(
+                    _redact_source(str(application.page_source)), encoding="utf-8"
+                ),
+                timeout,
+            )
+    capture_status = _capture_status(screenshot, source)
     result = {
+        "schema": "etb-evidence/v2",
         "artifact_classification": "PRIVATE_LOCAL",
-        "screenshot": screenshot,
-        "page_source": source,
+        "operation_status": "COMPLETED",
+        "capture_status": capture_status,
+        "artifacts": {
+            "screenshot": screenshot,
+            "page_source": source,
+        },
     }
     (evidence_dir / f"{stem}.json").write_text(
         json.dumps(result, sort_keys=True) + "\n", encoding="utf-8"
     )
-    if "EVIDENCE_CAPTURE_TIMEOUT" in (screenshot, source):
-        BuiltIn().log("EVIDENCE_CAPTURE_TIMEOUT", level="WARN")
-    return "PASS"
+    if capture_status != "COMPLETE":
+        BuiltIn().log(f"ETB_EVIDENCE_CAPTURE_STATUS={capture_status}", level="WARN")
+    return result
+
+
+def capture_etb_device_terminal_evidence(
+    output_dir: str, stem: str, serial: str
+) -> str:
+    """Capture foreground state when the app's hierarchy is no longer available."""
+    evidence_dir = Path(resolve_private_evidence_dir(output_dir))
+    try:
+        result = subprocess.run(
+            [resolve_adb_executable(), "-s", serial, "shell", "dumpsys", "window", "displays"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        output = result.stdout or result.stderr or ""
+        marker = "mCurrentFocus="
+        foreground = next(
+            (line.strip() for line in output.splitlines() if marker in line),
+            "",
+        )
+        status = "PASS" if result.returncode == 0 and foreground else "FAILED"
+    except (OSError, subprocess.TimeoutExpired):
+        foreground = ""
+        status = "FAILED"
+    (evidence_dir / f"{stem}.foreground.txt").write_text(f"{foreground}\n", encoding="utf-8")
+    payload = {
+        "schema": "etb-evidence/v2",
+        "artifact_classification": "PRIVATE_LOCAL",
+        "operation_status": "COMPLETED",
+        "capture_status": "COMPLETE" if status == "PASS" else "FAILED",
+        "artifacts": {"foreground": status},
+    }
+    (evidence_dir / f"{stem}.json").write_text(
+        json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return payload["capture_status"]

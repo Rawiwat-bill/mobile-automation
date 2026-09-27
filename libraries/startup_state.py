@@ -10,6 +10,8 @@ from typing import Any, cast
 
 from robot.libraries.BuiltIn import BuiltIn
 
+from libraries.android_adb import resolve_adb_executable
+
 _LANDING_MARKERS = ("screenLanding_skipButton", "screenLanding_buttonReady")
 _TERMS_MARKERS = ("Terms and Conditions", "termsAndConditions")
 _EXACT_ERROR_TEXT_MARKERS = (
@@ -65,7 +67,7 @@ def _diagnostic_adb_state() -> str:
     dump_path = "/sdcard/etb_startup_diag.xml"
     try:
         dump = subprocess.run(
-            ["adb", "-s", serial, "shell", "uiautomator", "dump", "--compressed", dump_path],
+            [resolve_adb_executable(), "-s", serial, "shell", "uiautomator", "dump", "--compressed", dump_path],
             capture_output=True,
             text=True,
             timeout=10,
@@ -74,7 +76,7 @@ def _diagnostic_adb_state() -> str:
         if dump.returncode != 0:
             return "ADB_DUMP_FAILED"
         source = subprocess.run(
-            ["adb", "-s", serial, "shell", "cat", dump_path],
+            [resolve_adb_executable(), "-s", serial, "shell", "cat", dump_path],
             capture_output=True,
             text=True,
             timeout=10,
