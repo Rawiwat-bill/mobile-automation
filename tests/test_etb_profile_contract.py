@@ -22,6 +22,20 @@ import unittest
 from unittest.mock import Mock, call, patch
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# This contract runs under Python -I and never parses real YAML. Provide a
+# fail-closed module boundary so importing repository code does not depend on
+# globally installed PyYAML; any unexpected YAML access fails the contract.
+_yaml_stub = types.ModuleType("yaml")
+def _unexpected_yaml_access(*args, **kwargs):
+    raise AssertionError("PROFILE_CONTRACT_UNEXPECTED_YAML_ACCESS")
+_yaml_stub.safe_load = _unexpected_yaml_access
+sys.modules.setdefault("yaml", _yaml_stub)
+
+import libraries.cis_preparation as cis_preparation
+
 RESOURCE = ROOT / "resources/keywords/etb/etb_regression_keywords.resource"
 
 # Runs with -I -S: no site configuration, inherited Python paths, or project
@@ -74,7 +88,7 @@ def external(path, output, selected=None):
                 selected_testcase=selected or "ALL_ETB_CASES",
                 all_required_cis_ready="YES", full_runtime_gate="OPEN")
 package = types.ModuleType("libraries")
-package.__path__ = []
+package.__path__ = [str(Path(__file__).resolve().parent / "libraries")]
 module = types.ModuleType("libraries.cis_preparation")
 module.prepare_cis_state = prepare
 module.cleanup_cis_state = cleanup
@@ -89,8 +103,8 @@ sys.modules["libraries.cis_preparation"] = module
 tools_package = types.ModuleType("tools")
 tools_package.__path__ = []
 target_guard = types.ModuleType("tools.real_device_preflight")
-def validate_target_identity(serial, execution_target, environment, package, activity, competing_package):
-    return {"target_identity": "PASS", "operation_count": 0}
+def validate_target_identity(serial, execution_target, environment, package, activity, competing_package, product_release="POST_MMP_1"):
+    return {"target_identity": "PASS", "build_identified": True, "build_identity": "SYNTHETIC_PROFILE_CONTRACT:0", "product_release": product_release, "operation_count": 0}
 target_guard.validate_target_identity = validate_target_identity
 sys.modules["tools"] = tools_package
 sys.modules["tools.real_device_preflight"] = target_guard
@@ -100,6 +114,21 @@ if args and args[0] == "-":
     sys.argv = args
     exec(compile(sys.stdin.read(), "<runner-inline-python>", "exec"),
          {"__name__": "__main__"})
+elif args and args[0].endswith("tools/runner/etb_runtime.py"):
+    script = Path(args[0])
+    sys.argv = args
+    exec(
+        compile(script.read_text(encoding="utf-8"), str(script), "exec"),
+        {"__name__": "__main__", "__file__": str(script)},
+    )
+elif args and args[0].endswith("tools/appium_server.py") and args[1:] in (["--ensure"], ["--reconcile"]):
+    record("appium_runtime_gate")
+    print("APPIUM_RUNTIME_READY=YES driver=uiautomator2 sdk=READY receipt=PASS mode=SYNTHETIC")
+elif args and args[0].endswith("tools/etb_network_preflight.py"):
+    record("network_runtime_gate")
+    if os.environ.get("CONTRACT_NETWORK_FAIL") == "1":
+        sys.exit(3)
+    print("ETB_NETWORK_GATE=LOCAL_READY upstream=NOT_CHECKED service=NOT_CHECKED")
 elif args[:2] == ["-m", "robot"]:
     args = args[2:]
     cases = []
@@ -122,14 +151,15 @@ elif args[:2] == ["-m", "robot"]:
     variables = [args[i + 1] for i, value in enumerate(args[:-1]) if value == "--variable"]
     record("robot_dryrun" if "--dryrun" in args else "robot",
            variables=variables, names=[c["name"] for c in cases])
-    if "--dryrun" in args:
-        output = Path(args[args.index("--outputdir") + 1])
-        output.mkdir(parents=True, exist_ok=True)
-        root = ET.Element("robot")
-        suite = ET.SubElement(root, "suite", name="synthetic")
-        for case in cases:
-            ET.SubElement(suite, "test", name=case["name"])
-        ET.ElementTree(root).write(output / "output.xml")
+    output = Path(args[args.index("--outputdir") + 1])
+    output.mkdir(parents=True, exist_ok=True)
+    root = ET.Element("robot")
+    suite = ET.SubElement(root, "suite", name="synthetic")
+    for case in cases:
+        test = ET.SubElement(suite, "test", name=case["name"])
+        if "--dryrun" not in args:
+            ET.SubElement(test, "status", status="PASS").text = ""
+    ET.ElementTree(root).write(output / "output.xml")
 else:
     raise RuntimeError("UNEXPECTED_PYTHON_BOUNDARY")
 '''
@@ -146,6 +176,32 @@ class RunnerProfileContractTests(unittest.TestCase):
             (ROOT / "tests/android/etb/etb_regression.robot").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
+        helper = self.root / "tools/runner/etb_runtime.py"
+        helper.parent.mkdir(parents=True)
+        helper.write_text(
+            (ROOT / "tools/runner/etb_runtime.py").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        evidence_index = self.root / "libraries/evidence_index.py"
+        evidence_index.parent.mkdir(parents=True, exist_ok=True)
+        evidence_index.write_text(
+            (ROOT / "libraries/evidence_index.py").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        case_manifest = self.root / "configs/etb_case_set.json"
+        case_manifest.parent.mkdir(parents=True, exist_ok=True)
+        case_manifest.write_text(
+            (ROOT / "configs/etb_case_set.json").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        for relative in (
+            "tools/runner/etb_configuration.sh",
+            "tools/runner/etb_selection.sh",
+            "tools/runner/etb_preflight.sh",
+            "tools/runner/etb_execution.sh",
+        ):
+            target = self.root / relative
+            target.write_text((ROOT / relative).read_text(encoding="utf-8"), encoding="utf-8")
         self.default_profile = self.root / "testdata/onboarding/etb_cases.local.yaml"
         self.default_profile.parent.mkdir(parents=True)
         self.default_profile.write_text("cases: {}\n", encoding="utf-8")
@@ -172,10 +228,7 @@ class RunnerProfileContractTests(unittest.TestCase):
             guard.chmod(0o700)
         for name in ("home", "tmp"):
             (self.root / name).mkdir()
-        source = (ROOT / "run").read_text(encoding="utf-8")
-        start = source.index("run_etb() {\n")
-        end = source.index("\nadb_target() {\n", start)
-        self.function = source[start:end]
+        self.function = (ROOT / "tools/runner/etb_runner.sh").read_text(encoding="utf-8")
         self.env = {
             "PATH": str(self.bin) + ":/usr/bin:/bin",
             "HOME": str(self.root / "home"),
@@ -183,6 +236,8 @@ class RunnerProfileContractTests(unittest.TestCase):
             "CONTRACT_TRACE": str(self.trace),
             "ETB_ENVIRONMENT": "DEV",
             "ANDROID_EXECUTION_TARGET": "DIAGNOSTIC_CONTROL",
+            "ETB_DISK_WARN_GB": "0",
+            "ETB_DISK_FAIL_GB": "0",
         }
 
     def run_fixture(self, args=None, env=None):
@@ -223,11 +278,41 @@ class RunnerProfileContractTests(unittest.TestCase):
     def test_runner_syntax_and_executable_contract(self):
         self.assertEqual((ROOT / "run").stat().st_mode & 0o111, 0o111,
                          "run must retain its tracked executable mode")
-        result = subprocess.run(
-            ["/bin/bash", "--noprofile", "--norc", "-n", str(ROOT / "run")],
-            cwd=self.root, env=self.env, capture_output=True, text=True, timeout=10,
-        )
-        self.assert_success(result)
+        for script_path in (
+            ROOT / "run",
+            ROOT / "tools/runner/etb_runner.sh",
+            ROOT / "tools/runner/etb_configuration.sh",
+            ROOT / "tools/runner/etb_selection.sh",
+            ROOT / "tools/runner/etb_preflight.sh",
+            ROOT / "tools/runner/etb_execution.sh",
+            ROOT / "tools/runner/android_environment.sh",
+        ):
+            result = subprocess.run(
+                ["/bin/bash", "--noprofile", "--norc", "-n", str(script_path)],
+                cwd=self.root, env=self.env, capture_output=True, text=True, timeout=10,
+            )
+            self.assert_success(result)
+
+    def test_runner_is_orchestration_only(self):
+        source = (ROOT / "tools/runner/etb_runner.sh").read_text(encoding="utf-8")
+        for helper in (
+            "etb_configuration.sh",
+            "etb_selection.sh",
+            "etb_preflight.sh",
+            "etb_execution.sh",
+        ):
+            self.assertIn(helper, source)
+        self.assertLessEqual(len(source.splitlines()), 60)
+        for detail in (
+            "com.bangkokbank.blue.dev",
+            "com.bangkokbank.blue.sit",
+            "target-guard",
+            "cis-preflight",
+            "sit-cis-readiness",
+            "-m robot --outputdir",
+        ):
+            with self.subTest(detail=detail):
+                self.assertNotIn(detail, source)
 
     def test_selected_013_does_not_prepare_unselected_001_in_runner(self):
         result, events = self.run_fixture()
@@ -358,40 +443,44 @@ class ProfileConsumerContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="cis-profile-contract-") as temporary:
             fixture = str(Path(temporary) / "synthetic.yaml")
             loads = []
+
             def load_yaml(path):
                 self.assertEqual(path, fixture)
                 loads.append(path)
                 return copy.deepcopy(data)
-            loader = types.ModuleType("libraries.config_loader")
-            loader.load_yaml = load_yaml
-            loader.load_profile = Mock(side_effect=AssertionError("LOCAL_PROFILE_LOADING_FORBIDDEN"))
-            package = types.ModuleType("libraries")
-            package.__path__ = []
-            evidence_scope = types.ModuleType("libraries.evidence_scope")
-            evidence_scope.resolve_scoped_output_dir = lambda output_dir, *args, **kwargs: output_dir
-            namespace = {"__name__": "isolated_cis_contract"}
-            with patch.dict(sys.modules, {
-                "libraries": package,
-                "libraries.config_loader": loader,
-                "libraries.evidence_scope": evidence_scope,
-            }), patch.dict(os.environ, {"ETB_ENVIRONMENT": "DEV"}, clear=True):
-                source = (ROOT / "libraries/cis_preparation.py").read_text(encoding="utf-8")
-                exec(compile(source, "<isolated-cis-module>", "exec"), namespace)
-                clear = Mock(return_value={"http_status": 200, "business_result_code": "Success"})
-                with patch.dict(namespace, {"_clear_once": clear}), patch("socket.create_connection", side_effect=AssertionError("NETWORK_FORBIDDEN")), patch("socket.getaddrinfo", side_effect=AssertionError("DNS_FORBIDDEN")), patch("subprocess.run", side_effect=AssertionError("DEVICE_PROCESS_FORBIDDEN")):
-                    preparation = namespace["prepare_cis_state"](fixture, "etb_tc_013", temporary)
-                    cleanup = namespace["cleanup_cis_state"](fixture, "etb_tc_013", temporary)
-                self.assertEqual(clear.call_args_list, [call("MASKED_SYNTHETIC_013"), call("MASKED_SYNTHETIC_013")])
-                self.assertEqual(loads, [fixture, fixture])
-                self.assertEqual(preparation["cis_clear"], "PASS")
-                self.assertEqual(cleanup["cis_clear"], "PASS")
-                loader.load_profile.assert_not_called()
+
+            clear = Mock(return_value={"http_status": 200, "business_result_code": "Success"})
+            with (
+                patch.object(cis_preparation, "load_yaml", side_effect=load_yaml),
+                patch.object(
+                    cis_preparation,
+                    "_load_profile",
+                    side_effect=AssertionError("LOCAL_PROFILE_LOADING_FORBIDDEN"),
+                ) as load_profile,
+                patch.object(cis_preparation, "_clear_once", clear),
+                patch.dict(os.environ, {"ETB_ENVIRONMENT": "DEV"}, clear=True),
+            ):
+                preparation = cis_preparation.prepare_cis_state(
+                    fixture, "etb_tc_013", temporary
+                )
+                cleanup = cis_preparation.cleanup_cis_state(
+                    fixture, "etb_tc_013", temporary
+                )
+
+            self.assertEqual(
+                clear.call_args_list,
+                [call("MASKED_SYNTHETIC_013"), call("MASKED_SYNTHETIC_013")],
+            )
+            self.assertEqual(loads, [fixture, fixture])
+            self.assertEqual(preparation["cis_clear"], "PASS")
+            self.assertEqual(cleanup["cis_clear"], "PASS")
+            load_profile.assert_not_called()
 
 
 if __name__ == "__main__":
     import hashlib
     for relative in (
-        "run", "libraries/cis_preparation.py",
+        "run", "tools/runner/etb_runner.sh", "tools/runner/etb_configuration.sh", "tools/runner/etb_selection.sh", "tools/runner/etb_preflight.sh", "tools/runner/etb_execution.sh", "tools/runner/etb_runtime.py", "tools/runner/android_environment.sh", "libraries/cis_preparation.py",
         "resources/keywords/etb/etb_regression_keywords.resource",
         "tests/test_etb_profile_contract.py", "package.json",
     ):

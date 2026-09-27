@@ -11,6 +11,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARY_PATH = ROOT / "libraries" / "etb_readiness_evidence.py"
 ETB_RESOURCE = ROOT / "resources" / "keywords" / "etb" / "etb_keywords.resource"
+ETB_OBSERVABILITY_RESOURCE = ROOT / "resources" / "diagnostics" / "etb_observability.resource"
 
 
 class ETBReadinessEvidenceContractTests(unittest.TestCase):
@@ -158,18 +159,32 @@ class ETBReadinessEvidenceContractTests(unittest.TestCase):
 
     def test_production_aji_branch_persists_summary_before_failure(self):
         source = ETB_RESOURCE.read_text(encoding="utf-8")
-        self.assertIn("Library", source)
-        self.assertIn("etb_readiness_evidence.py", source)
-        marker = "IF    '${common_result}' == 'AJI-001'"
+        observability = ETB_OBSERVABILITY_RESOURCE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "Resource            ../../diagnostics/etb_observability.resource",
+            source,
+        )
+        self.assertIn("Library          ../../libraries/etb_readiness_evidence.py", observability)
+
+        adapter_marker = "Record ETB Readiness Blocker"
+        adapter_start = observability.index(adapter_marker)
+        adapter_end = observability.index("\n\n", adapter_start)
+        adapter = observability[adapter_start:adapter_end]
+        self.assertIn("Persist ETB Readiness Summary", adapter)
+        self.assertIn("profile_handoff=PASS", adapter)
+        self.assertIn("dopa_reached=${dopa_reached}", adapter)
+
+        marker = "IF    '${common_result}' == '${FLOW_STATE_AJI_001}'"
         start = source.index(marker)
         end = source.index("    END", start)
         branch = source[start:end]
-        self.assertIn("Persist ETB Readiness Summary", branch)
-        self.assertIn("blocker_code=AJI-001", branch)
-        self.assertIn("profile_handoff=PASS", branch)
-        self.assertIn("dopa_reached=${FALSE}", branch)
+        self.assertIn(
+            "Record ETB Readiness Blocker    ${OUTPUT DIR}    ${FLOW_STATE_AJI_001}    ${FALSE}",
+            branch,
+        )
         self.assertLess(
-            branch.index("Persist ETB Readiness Summary"),
+            branch.index("Record ETB Readiness Blocker"),
             branch.index("Fail    BLOCKED_BY_ENVIRONMENT_BACKEND_AJI_001"),
         )
 

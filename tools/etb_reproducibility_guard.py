@@ -164,14 +164,47 @@ def index_transfer_gaps(repo: Path, manifest: dict[str, Any]) -> tuple[str, ...]
     return tuple(gaps)
 
 
-def _candidate_index_paths(repo: Path, manifest: dict[str, Any]) -> tuple[str, ...]:
-    tracked = set(_git_paths(repo, "ls-files", "-z"))
+def _head_paths(repo: Path) -> tuple[str, ...]:
+    completed = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "-z", "HEAD"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed.returncode != 0:
+        return ()
+    return tuple(
+        item.decode("utf-8", errors="surrogateescape")
+        for item in completed.stdout.split(b"\0")
+        if item
+    )
+
+
+def _head_blob(repo: Path, relative: str) -> bytes | None:
+    completed = subprocess.run(
+        ["git", "show", f"HEAD:{relative}"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return completed.stdout if completed.returncode == 0 else None
+
+
+def _head_mode(repo: Path, relative: str) -> str | None:
+    completed = _run(["git", "ls-tree", "HEAD", "--", relative], cwd=repo)
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return None
+    return completed.stdout.split(maxsplit=1)[0]
+
+
+def _candidate_snapshot_paths(repo: Path, manifest: dict[str, Any]) -> tuple[str, ...]:
+    head_tracked = set(_head_paths(repo))
     explicit = {
         str(path)
         for key in ("required_current_paths", "required_source_examples")
         for path in manifest.get(key, [])
     }
-    return tuple(sorted(tracked | explicit))
+    return tuple(sorted(head_tracked | explicit))
 
 
 def materialize_index_snapshot(
@@ -188,11 +221,17 @@ def materialize_index_snapshot(
     }
     missing: list[str] = []
 
-    for relative in _candidate_index_paths(repo, manifest):
+    for relative in _candidate_snapshot_paths(repo, manifest):
         if _sensitive_path(relative):
             continue
-        blob = _index_blob(repo, relative)
-        mode = _index_mode(repo, relative)
+
+        if relative in explicit_required:
+            blob = _index_blob(repo, relative)
+            mode = _index_mode(repo, relative)
+        else:
+            blob = _head_blob(repo, relative)
+            mode = _head_mode(repo, relative)
+
         if blob is None or mode is None:
             if relative in explicit_required:
                 missing.append(relative)

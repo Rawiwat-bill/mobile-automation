@@ -127,6 +127,87 @@ class StartupStateTests(unittest.TestCase):
 
         self.assertFalse(any(args[:2] == ("shell", "cat") for args, _ in calls))
 
+    def test_reset_retries_transient_ui_dump_after_pm_clear(self):
+        def fake_adb(serial, *args, **kwargs):
+            if args[:3] == ("shell", "pm", "clear"):
+                return "Success\n"
+            return ""
+
+        with (
+            patch.object(adb_device, "_adb", side_effect=fake_adb),
+            patch.object(
+                adb_device,
+                "_dump_source",
+                side_effect=[
+                    AssertionError("ADB_UI_DUMP_TIMEOUT"),
+                    "<hierarchy />",
+                ],
+            ) as dump_source,
+            patch.object(adb_device.time, "sleep", return_value=None) as sleep,
+        ):
+            result = adb_device.reset_android_application_before_session(
+                "emulator-5554", "package"
+            )
+
+        self.assertEqual(result, "PASS")
+        self.assertEqual(dump_source.call_count, 2)
+        sleep.assert_called_once_with(0.5)
+
+    def test_reset_recovery_wakes_and_dismisses_keyguard_before_retry(self):
+        calls = []
+
+        def fake_adb(serial, *args, **kwargs):
+            calls.append((args, kwargs))
+            if args[:3] == ("shell", "pm", "clear"):
+                return "Success\n"
+            return ""
+
+        with (
+            patch.object(adb_device, "_adb", side_effect=fake_adb),
+            patch.object(
+                adb_device,
+                "_dump_source",
+                side_effect=[AssertionError("ADB_UI_DUMP_FAILED"), "<hierarchy />"],
+            ),
+            patch.object(adb_device.time, "sleep", return_value=None),
+        ):
+            result = adb_device.reset_android_application_before_session(
+                "emulator-5556", "package"
+            )
+
+        self.assertEqual(result, "PASS")
+        self.assertIn(
+            (("shell", "input", "keyevent", "KEYCODE_WAKEUP"), {"timeout": 5, "check": False}),
+            calls,
+        )
+        self.assertIn(
+            (("shell", "wm", "dismiss-keyguard"), {"timeout": 5, "check": False}),
+            calls,
+        )
+
+    def test_reset_fails_closed_after_transient_ui_dump_retries_exhausted(self):
+        def fake_adb(serial, *args, **kwargs):
+            if args[:3] == ("shell", "pm", "clear"):
+                return "Success\n"
+            return ""
+
+        with (
+            patch.object(adb_device, "_adb", side_effect=fake_adb),
+            patch.object(
+                adb_device,
+                "_dump_source",
+                side_effect=AssertionError("ADB_UI_DUMP_TIMEOUT"),
+            ) as dump_source,
+            patch.object(adb_device.time, "sleep", return_value=None) as sleep,
+        ):
+            with self.assertRaisesRegex(AssertionError, "ADB_UI_DUMP_TIMEOUT"):
+                adb_device.reset_android_application_before_session(
+                    "emulator-5554", "package"
+                )
+
+        self.assertEqual(dump_source.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
     def test_reset_dismisses_exact_stale_aerr_after_pm_clear(self):
         stale = (
             '<hierarchy>'
@@ -246,10 +327,32 @@ class StartupStateTests(unittest.TestCase):
             "Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}",
             app_keywords,
         )
+        self.assertIn("settings[enforceXPath1]=${True}", app_keywords)
         self.assertIn(adb_start, app_keywords)
         self.assertIn(appium_open, app_keywords)
         self.assertLess(app_keywords.index(adb_start), app_keywords.index(appium_open))
         self.assertIn("Set To Dictionary    ${capabilities}    noReset=${no_reset}", app_keywords)
+
+    def test_foreground_uses_window_displays_not_full_window_dump(self):
+        source = (
+            "mCurrentFocus=Window{123 u0 "
+            "com.bangkokbank.blue.dev/com.bangkokbank.blue.MainActivity}"
+        )
+        with patch.object(adb_device, "_adb", return_value=source) as adb_mock:
+            foreground = adb_device._foreground("emulator-5556")
+
+        self.assertEqual(
+            foreground,
+            "com.bangkokbank.blue.dev/com.bangkokbank.blue.MainActivity",
+        )
+        adb_mock.assert_called_once_with(
+            "emulator-5556",
+            "shell",
+            "dumpsys",
+            "window",
+            "displays",
+            check=False,
+        )
 
     def test_adb_observer_does_not_reuse_source_across_transient_dump_failure(self):
         clock = {"now": 0.0}
@@ -380,9 +483,65 @@ class StartupStateTests(unittest.TestCase):
                         interval=1,
                     )
 
+    def test_adb_observer_relaunches_stuck_emulator_transition_once_without_clear(self):
+        clock = {"now": 0.0}
+        package = "com.bangkokbank.blue.dev"
+        transition = '<hierarchy><node resource-id="Transition_Screen_Logo_Icon" /></hierarchy>'
+        landing = '<hierarchy><node resource-id="screenLanding_skipButton" /></hierarchy>'
+        foreground = f"{package}/com.bangkokbank.blue.MainActivity"
+        calls = []
+
+        def fake_monotonic():
+            return clock["now"]
+
+        def fake_sleep(seconds):
+            clock["now"] += float(seconds)
+
+        def fake_adb(serial, *args, **kwargs):
+            calls.append(args)
+            if args[:3] == ("shell", "am", "start"):
+                return "Starting: Intent"
+            return ""
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            with (
+                patch.object(adb_device, "_adb", side_effect=fake_adb),
+                patch.object(
+                    adb_device,
+                    "_dump_source",
+                    side_effect=[transition, transition, transition, transition, landing],
+                ),
+                patch.object(adb_device, "_foreground", return_value=foreground),
+                patch.object(adb_device, "_capture_final_screenshot", return_value=None),
+                patch.object(adb_device, "get_app_pid", return_value="123"),
+                patch.object(adb_device.time, "monotonic", side_effect=fake_monotonic),
+                patch.object(adb_device.time, "sleep", side_effect=fake_sleep),
+            ):
+                result = adb_device.start_and_observe_real_device(
+                    "emulator-5556",
+                    package,
+                    "com.bangkokbank.blue.MainActivity",
+                    output_dir,
+                    timeout=40,
+                    interval=10,
+                )
+
+        self.assertEqual(result["terminal_state"], "LANDING")
+        self.assertEqual(result["startup_relaunch_count"], 1)
+        self.assertIn(
+            "INTERIM_FORCE_STOP_RELAUNCH",
+            [event["state"] for event in result["timeline"]],
+        )
+        starts = [call for call in calls if call[:3] == ("shell", "am", "start")]
+        force_stops = [call for call in calls if call[:3] == ("shell", "am", "force-stop")]
+        clears = [call for call in calls if call[:3] == ("shell", "pm", "clear")]
+        self.assertEqual(len(starts), 2)
+        self.assertEqual(len(force_stops), 1)
+        self.assertEqual(clears, [])
+
     def test_adb_observer_screencap_is_after_polling_loop(self):
         adb_device_source = (ROOT / "libraries/adb_device.py").read_text(encoding="utf-8")
-        loop = "while time.monotonic() - started_at <= float(timeout):"
+        loop = "while time.monotonic() - window_started <= float(window_timeout):"
         final_capture = '_capture_final_screenshot(serial, evidence_dir / "real_startup_last.png")'
         self.assertIn(loop, adb_device_source)
         self.assertIn(final_capture, adb_device_source)
@@ -396,9 +555,9 @@ class StartupStateTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         start = landing_page.index("Tap Landing Ready Button\n")
         body = landing_page[start:]
-        self.assertIn("Element Should Be Visible    ${LANDING_SKIP_BUTTON}", body)
-        self.assertIn("Get Element Rect    ${LANDING_SKIP_BUTTON}", body)
-        self.assertIn("Get Element Rect    ${LANDING_READY_BUTTON}", body)
+        self.assertIn("Element Should Be Visible Now    ${LANDING_SKIP_BUTTON}", body)
+        self.assertIn("Get Fresh Landing Element Rect    ${LANDING_SKIP_BUTTON}", body)
+        self.assertIn("Get Fresh Landing Element Rect    ${LANDING_READY_BUTTON}", body)
         self.assertIn("LANDING_ACTION_TAPPED=ADB_FRESH_BOUNDS", body)
         self.assertIn(
             "Wait Until Keyword Succeeds    10s    500ms    Landing Action Should Be Gone",

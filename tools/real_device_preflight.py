@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import pwd
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -17,12 +20,23 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1] if "__file__" in globals() else Path.cwd().resolve()
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from libraries.android_adb import resolve_adb_executable
+
 PACKAGE = "com.bangkokbank.blue.dev"
 ACTIVITY = "com.bangkokbank.blue.MainActivity"
-EXPECTED_MANUFACTURER = "HUAWEI"
-EXPECTED_MODEL = "MGA-LX3"
+APPROVED_REAL_DEVICE_IDENTITIES = {
+    ("HUAWEI", "MGA-LX3"),
+    ("OPPO", "CPH2781"),
+}
 APPROVED_BUILD_IDENTITIES = {
-    "DEV": ("1.14.0-debug-network-post-mmp-1-alpha-12-170-Unshield", "170"),
+    "DEV": {
+        "POST_MMP_1": ("1.14.0-debug-network-post-mmp-1-alpha-24-191-Unshield", "191"),
+        "MMP_LOT2_V2": ("1.13.9-145-Unshield-VPN-release-opo-fixed-tandc-not-display", "145"),
+    },
     "SIT": ("1.12.11-16-Unshield", "16"),
 }
 LANDING_MARKERS = ("screenLanding_skipButton", "screenLanding_buttonReady")
@@ -36,13 +50,103 @@ EXACT_ERROR_TEXT_MARKERS = (
 EXACT_ERROR_CODE_PATTERN = re.compile(r"\b(?:RGI-\d+|AJI-001)\b")
 
 
+def _resolve_adb_executable() -> str:
+    return resolve_adb_executable()
+
+
+def _adb_nonzero_category(result: subprocess.CompletedProcess[str]) -> str:
+    diagnostic = ((result.stderr or "") + "\n" + (result.stdout or "")).lower()
+    if "offline" in diagnostic:
+        return "ADB_DEVICE_OFFLINE"
+    if "unauthorized" in diagnostic:
+        return "ADB_DEVICE_UNAUTHORIZED"
+    if ("device" in diagnostic and "not found" in diagnostic) or "no devices/emulators found" in diagnostic:
+        return "ADB_DEVICE_NOT_FOUND"
+    if "server version" in diagnostic and "doesn't match" in diagnostic:
+        return "ADB_SERVER_VERSION_MISMATCH"
+    if any(marker in diagnostic for marker in (
+        "cannot connect to daemon",
+        "failed to start daemon",
+        "cannot bind",
+        "smartsocket",
+    )):
+        return "ADB_SERVER_UNAVAILABLE"
+    return "ADB_NONZERO"
+
+
+def _adb_listed_state(serial: str, output: str) -> str | None:
+    for line in (output or "").replace("\r", "").splitlines()[1:]:
+        fields = line.split()
+        if fields and fields[0] == serial:
+            return fields[1].lower() if len(fields) > 1 else "unknown"
+    return None
+
+
 def adb(serial: str, *args: str, timeout: float = 10, check: bool = True) -> str:
-    result = subprocess.run(
-        ["adb", "-s", serial, *args], capture_output=True, text=True, timeout=timeout
-    )
-    if check and result.returncode:
-        raise RuntimeError((result.stderr or result.stdout).strip() or f"adb failed: {args}")
-    return (result.stdout or "").replace("\r", "")
+    adb_executable = _resolve_adb_executable()
+    warmup_state: str | None = None
+    if args == ("get-state",):
+        try:
+            warmup = subprocess.run(
+                [adb_executable, "devices"],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("ADB_TIMEOUT") from None
+        except FileNotFoundError:
+            raise RuntimeError("ADB_EXECUTABLE_NOT_FOUND") from None
+        except OSError:
+            raise RuntimeError("ADB_OS_ERROR") from None
+        if warmup.returncode:
+            raise RuntimeError(_adb_nonzero_category(warmup))
+        warmup_state = _adb_listed_state(serial, warmup.stdout or "")
+
+    max_attempts = 3 if args == ("get-state",) else 1
+    for attempt in range(max_attempts):
+        try:
+            result = subprocess.run(
+                [adb_executable, "-s", serial, *args],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("ADB_TIMEOUT") from None
+        except FileNotFoundError:
+            raise RuntimeError("ADB_EXECUTABLE_NOT_FOUND") from None
+        except OSError:
+            raise RuntimeError("ADB_OS_ERROR") from None
+
+        if not check or not result.returncode:
+            return (result.stdout or "").replace("\r", "")
+
+        category = _adb_nonzero_category(result)
+        if category == "ADB_DEVICE_NOT_FOUND" and attempt + 1 < max_attempts:
+            time.sleep(0.5)
+            continue
+        if category == "ADB_DEVICE_NOT_FOUND" and args == ("get-state",) and warmup_state == "device":
+            try:
+                confirmation = subprocess.run(
+                    [adb_executable, "devices"],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError("ADB_TIMEOUT") from None
+            except FileNotFoundError:
+                raise RuntimeError("ADB_EXECUTABLE_NOT_FOUND") from None
+            except OSError:
+                raise RuntimeError("ADB_OS_ERROR") from None
+            if confirmation.returncode:
+                raise RuntimeError(_adb_nonzero_category(confirmation))
+            if _adb_listed_state(serial, confirmation.stdout or "") == "device":
+                return "device\n"
+        raise RuntimeError(category)
+
+    raise RuntimeError("ADB_NONZERO")
 
 
 def prop(serial: str, name: str) -> str:
@@ -56,6 +160,7 @@ def validate_target_identity(
     package: str,
     activity: str,
     competing_package: str,
+    product_release: str = "POST_MMP_1",
 ) -> dict:
     """Read-only, fail-closed guard before ETB backend or package preparation.
 
@@ -74,52 +179,94 @@ def validate_target_identity(
     require(isinstance(serial, str) and bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", serial)), "SERIAL_REQUIRED_OR_INVALID")
     require(environment in {"DEV", "SIT", "DEV_MOCK"}, "ENVIRONMENT_INVALID")
     require(execution_target in {"REAL", "DIAGNOSTIC_CONTROL"}, "EXECUTION_TARGET_INVALID")
+    require(product_release in {"MMP_LOT2_V2", "POST_MMP_1"}, "PRODUCT_RELEASE_INVALID")
     expected_package = "com.bangkokbank.blue.sit" if environment == "SIT" else "com.bangkokbank.blue.dev"
     expected_competing = "com.bangkokbank.blue.dev" if environment == "SIT" else "com.bangkokbank.blue.sit"
     require(package == expected_package and competing_package == expected_competing, "PACKAGE_POLICY_MISMATCH")
     require(activity == "com.bangkokbank.blue.MainActivity", "ACTIVITY_POLICY_MISMATCH")
     emulator_targets = {
-        "DEV": ("emulator-5554", "local_android_36"),
-        "SIT": ("emulator-5556", "Pixel_8"),
-        "DEV_MOCK": ("emulator-5558", "Pixel_10"),
+        "DEV": (
+            ("emulator-5554", "local_android_36"),
+            ("emulator-5556", "Pixel_10_PlayStore"),
+        ),
+        "SIT": (("emulator-5556", "Pixel_8"),),
+        "DEV_MOCK": (("emulator-5558", "Pixel_10"),),
     }
     if execution_target == "DIAGNOSTIC_CONTROL":
-        expected_serial, expected_avd = emulator_targets[environment]
-        require(serial == expected_serial, "ENVIRONMENT_SERIAL_MISMATCH")
+        allowed_targets = emulator_targets[environment]
+        require(
+            any(candidate_serial == serial for candidate_serial, _ in allowed_targets),
+            "ENVIRONMENT_SERIAL_MISMATCH",
+        )
     else:
+        allowed_targets = ()
         require(not serial.startswith("emulator-") and environment != "DEV_MOCK", "REAL_TARGET_MISMATCH")
 
+    observation_stage = "GET_STATE"
     try:
         require(adb(serial, "get-state").strip() == "device", "DEVICE_NOT_READY")
+        observation_stage = "BOOT"
         require(prop(serial, "sys.boot_completed") == "1", "BOOT_NOT_COMPLETE")
+        observation_stage = "QEMU"
         qemu = prop(serial, "ro.kernel.qemu")
         if execution_target == "DIAGNOSTIC_CONTROL":
             require(qemu == "1", "EMULATOR_IDENTITY_MISMATCH")
-            require(prop(serial, "ro.boot.qemu.avd_name") == expected_avd, "AVD_MISMATCH")
+            observation_stage = "AVD"
+            observed_avd = prop(serial, "ro.boot.qemu.avd_name")
+            require((serial, observed_avd) in allowed_targets, "AVD_MISMATCH")
         else:
             require(qemu in {"0", ""}, "REAL_TARGET_MISMATCH")
-            require(prop(serial, "ro.product.manufacturer").upper() == EXPECTED_MANUFACTURER, "MANUFACTURER_MISMATCH")
-            require(prop(serial, "ro.product.model").upper() == EXPECTED_MODEL, "MODEL_MISMATCH")
+            observation_stage = "MANUFACTURER"
+            observed_manufacturer = prop(serial, "ro.product.manufacturer").upper()
+            observation_stage = "MODEL"
+            observed_model = prop(serial, "ro.product.model").upper()
+            require(
+                (observed_manufacturer, observed_model) in APPROVED_REAL_DEVICE_IDENTITIES,
+                "REAL_DEVICE_IDENTITY_MISMATCH",
+            )
+        observation_stage = "PACKAGE_PATH"
         require(adb(serial, "shell", "pm", "path", package).strip().startswith("package:"), "TARGET_PACKAGE_MISSING")
+        observation_stage = "PACKAGE_INFO"
         app_info = adb(serial, "shell", "dumpsys", "package", package)
         version_code = re.search(r"\bversionCode=(\d+)", app_info)
         version_name = re.search(r"\bversionName=([^\s]+)", app_info)
         require(bool(version_code and version_name) and version_name.group(1).lower() not in {"null", "unknown"}, "BUILD_UNIDENTIFIED")
         assert version_code is not None and version_name is not None
         approved_identity = APPROVED_BUILD_IDENTITIES.get(environment)
+        if environment == "DEV":
+            assert isinstance(approved_identity, dict)
+            approved_identity = approved_identity.get(product_release)
+            require(approved_identity is not None, "BUILD_RELEASE_MAPPING_MISSING")
         if approved_identity is not None:
             require(
                 (version_name.group(1), version_code.group(1)) == approved_identity,
                 "BUILD_APPROVAL_MISMATCH",
             )
+        observation_stage = "LAUNCHER"
         resolved = adb(
             serial, "shell", "cmd", "package", "resolve-activity", "--brief",
             "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", package,
         ).strip().splitlines()
         require(bool(resolved) and resolved[-1] == f"{package}/{activity}", "LAUNCHER_MISMATCH")
-    except (OSError, subprocess.SubprocessError, RuntimeError):
+    except RuntimeError as error:
+        # Surface only a fixed diagnostic category; never echo raw ADB output.
+        category = str(error)
+        if category not in {
+            "ADB_TIMEOUT",
+            "ADB_EXECUTABLE_NOT_FOUND",
+            "ADB_OS_ERROR",
+            "ADB_DEVICE_OFFLINE",
+            "ADB_DEVICE_UNAUTHORIZED",
+            "ADB_DEVICE_NOT_FOUND",
+            "ADB_SERVER_VERSION_MISMATCH",
+            "ADB_SERVER_UNAVAILABLE",
+            "ADB_NONZERO",
+        }:
+            category = "ADB_RUNTIME"
+        raise ValueError(f"TARGET_GUARD_OBSERVATION_FAILED_{observation_stage}_{category}") from None
+    except (OSError, subprocess.SubprocessError):
         # Never echo raw command output, serials, or transport exception data.
-        raise ValueError("TARGET_GUARD_OBSERVATION_FAILED") from None
+        raise ValueError(f"TARGET_GUARD_OBSERVATION_FAILED_{observation_stage}_OBSERVATION_ERROR") from None
     return {
         "target_identity": "PASS",
         "environment": environment,
@@ -127,7 +274,9 @@ def validate_target_identity(
         "package": package,
         "activity": activity,
         "build_identified": True,
+        "build_identity": f"{version_name.group(1)}:{version_code.group(1)}",
         "build_approval": "PASS" if environment in APPROVED_BUILD_IDENTITIES else "DELEGATED_TO_ENVIRONMENT_VALIDATOR",
+        "product_release": product_release,
         "operation_count": 0,
     }
 
@@ -176,11 +325,11 @@ def readiness(serial: str, report_dir: Path, appium_url: str, package: str, acti
         checks["ADB_RESPONSIVE"] = "YES" if adb(serial, "get-state").strip() == "device" else "NO"
     except Exception:
         checks["ADB_RESPONSIVE"] = "NO"
-    devices = subprocess.run(["adb", "devices"], capture_output=True, text=True, check=False).stdout
+    devices = subprocess.run([_resolve_adb_executable(), "devices"], capture_output=True, text=True, check=False).stdout
     checks["DEVICE_CONNECTED"] = "YES" if re.search(rf"^{re.escape(serial)}\s+device\b", devices, re.M) else "NO"
     manufacturer = prop(serial, "ro.product.manufacturer") if checks["ADB_RESPONSIVE"] == "YES" else ""
     model = prop(serial, "ro.product.model") if checks["ADB_RESPONSIVE"] == "YES" else ""
-    checks["DEVICE_REAL"] = "YES" if manufacturer.upper() == EXPECTED_MANUFACTURER and model.upper() == EXPECTED_MODEL else "NO"
+    checks["DEVICE_REAL"] = "YES" if (manufacturer.upper(), model.upper()) in APPROVED_REAL_DEVICE_IDENTITIES else "NO"
     # Readiness is observational: leave a locked/asleep device unchanged.
     checks["DEVICE_UNLOCKED"] = "YES" if keyguard_inactive(serial) else "NO"
     checks["SCREEN_AWAKE"] = "YES" if checks["DEVICE_UNLOCKED"] == "YES" else "NO"
@@ -254,7 +403,7 @@ def observe_startup(serial: str, report_dir: Path, timeout: float, interval: flo
             break
         time.sleep(interval)
     subprocess.run(
-        ["adb", "-s", serial, "exec-out", "screencap", "-p"],
+        [_resolve_adb_executable(), "-s", serial, "exec-out", "screencap", "-p"],
         stdout=(report_dir / "startup_terminal.png").open("wb"),
         check=False,
         timeout=10,

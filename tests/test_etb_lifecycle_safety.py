@@ -49,6 +49,7 @@ class _FakeApplication:
         self.label = label
         self.screenshot_delay = screenshot_delay
         self.source_delay = source_delay
+        self.source_calls = 0
 
     def save_screenshot(self, path: str) -> bool:
         time.sleep(self.screenshot_delay)
@@ -57,6 +58,7 @@ class _FakeApplication:
 
     @property
     def page_source(self) -> str:
+        self.source_calls += 1
         time.sleep(self.source_delay)
         return (
             "<hierarchy>"
@@ -91,7 +93,8 @@ class ETBLifecycleSafetyTests(unittest.TestCase):
                     temp, "late", timeout=0.01
                 )
 
-            self.assertEqual(result, "PASS")
+            self.assertEqual(result["operation_status"], "COMPLETED")
+            self.assertEqual(result["capture_status"], "TIMEOUT")
             evidence_dir = (
                 Path(temp)
                 / "evidence"
@@ -100,8 +103,14 @@ class ETBLifecycleSafetyTests(unittest.TestCase):
                 / "private_local"
             )
             metadata = json.loads((evidence_dir / "late.json").read_text(encoding="utf-8"))
-            self.assertEqual(metadata["screenshot"], "EVIDENCE_CAPTURE_TIMEOUT")
-            self.assertEqual(metadata["page_source"], "EVIDENCE_CAPTURE_TIMEOUT")
+            self.assertEqual(metadata["schema"], "etb-evidence/v2")
+            self.assertEqual(metadata["operation_status"], "COMPLETED")
+            self.assertEqual(metadata["capture_status"], "TIMEOUT")
+            self.assertEqual(metadata["artifacts"]["screenshot"], "EVIDENCE_CAPTURE_TIMEOUT")
+            # Production deliberately does not issue a second Appium request
+            # while the timed-out screenshot worker may still be in flight.
+            self.assertEqual(metadata["artifacts"]["page_source"], "EVIDENCE_CAPTURE_NOT_ATTEMPTED")
+            self.assertEqual(app.source_calls, 0)
 
             time.sleep(0.18)
             self.assertFalse(
@@ -117,6 +126,32 @@ class ETBLifecycleSafetyTests(unittest.TestCase):
                 [],
                 "timed-out evidence worker left pending artifacts behind",
             )
+
+    def test_successful_evidence_capture_reports_complete(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="etb-complete-evidence-") as temp:
+            app = _FakeApplication("SESSION-COMPLETE")
+            appium = _SequencedAppium([app])
+            env = {"ETB_RUN_ID": "RUN-COMPLETE", "ETB_CASE_ID": "TC-ETB-001"}
+            with patch.dict(os.environ, env, clear=False), patch.object(
+                failure_evidence, "_appium", return_value=appium
+            ), patch.object(failure_evidence, "BuiltIn", return_value=_FakeBuiltIn()):
+                result = failure_evidence.capture_etb_failure_evidence(
+                    temp, "complete", timeout=0.2
+                )
+
+            self.assertEqual(result["operation_status"], "COMPLETED")
+            self.assertEqual(result["capture_status"], "COMPLETE")
+            evidence_dir = (
+                Path(temp)
+                / "evidence"
+                / "RUN-COMPLETE"
+                / "TC-ETB-001"
+                / "private_local"
+            )
+            payload = json.loads((evidence_dir / "complete.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["capture_status"], "COMPLETE")
+            self.assertEqual(payload["artifacts"]["screenshot"], "PASS")
+            self.assertEqual(payload["artifacts"]["page_source"], "PASS")
 
     def test_evidence_capture_pins_one_appium_session_before_workers(self) -> None:
         with tempfile.TemporaryDirectory(prefix="etb-session-pin-") as temp:
@@ -158,6 +193,12 @@ class ETBLifecycleSafetyTests(unittest.TestCase):
         self.assertNotIn("Open Mobile Application", prepare)
         self.assertNotIn("Close Application", prepare)
         self.assertIn("Open Mobile Application", reset)
+
+    def test_session_close_error_uses_safe_robot_expression_variables(self) -> None:
+        lifecycle = _read("resources/keywords/etb/etb_session_lifecycle.resource")
+        self.assertIn("IF    $close_status == 'PASS'", lifecycle)
+        self.assertIn("ELSE IF    $close_error == 'No application is open'", lifecycle)
+        self.assertNotIn("'${close_error}'", lifecycle)
 
     def test_robot_runs_test_teardown_after_test_setup_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="etb-setup-failure-") as temp:

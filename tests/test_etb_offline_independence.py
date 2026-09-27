@@ -3,10 +3,20 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+# This contract must not depend on globally installed PyYAML. The selected tests
+# never parse real YAML; any unexpected YAML access is therefore a contract failure.
+_yaml_stub = types.ModuleType("yaml")
+def _unexpected_yaml_access(*args, **kwargs):
+    raise AssertionError("OFFLINE_INDEPENDENCE_UNEXPECTED_YAML_ACCESS")
+_yaml_stub.safe_load = _unexpected_yaml_access
+sys.modules.setdefault("yaml", _yaml_stub)
 
 from tests.test_cis_preparation import CisPreparationTests
 

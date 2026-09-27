@@ -40,13 +40,15 @@ def configure_landing(scenario, skip_locator, ready_locator):
     )
 
 
-def configure_destination(state, destination_locator, gub_locator):
+def configure_destination(state, destination_locator, gub_locator, popup_locator, offline_locator):
     _STATE.clear()
     _STATE.update(
         mode='destination',
         state=state,
         destination_locator=destination_locator,
         gub_locator=gub_locator,
+        popup_locator=popup_locator,
+        offline_locator=offline_locator,
         events=[],
         taps=[],
     )
@@ -63,6 +65,10 @@ def mock_visible(locator):
         if locator == _STATE['destination_locator'] and _STATE['state'] == 'TERMS':
             return
         if locator == _STATE['gub_locator'] and _STATE['state'] == 'GUB':
+            return
+        if locator == _STATE['popup_locator'] and _STATE['state'] == 'POPUP_GUB':
+            return
+        if locator == _STATE['offline_locator'] and _STATE['state'] == 'OFFLINE':
             return
         raise AssertionError('LANDING_MOCK_NOT_VISIBLE')
     action = _action(locator)
@@ -153,18 +159,30 @@ Unknown Initial Action Must Not Tap
     Assert Mock Contract    NONE
 
 Terms Destination Is Accepted
-    Configure Destination    TERMS    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}
+    Configure Destination    TERMS    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}    ${{LANDING_POPUP_GUB_CONTAINER}}    ${{LANDING_OFFLINE_MESSAGE}}
     ${{result}}=    Wait For Landing Destination    xpath=//android.webkit.WebView    40s
     Should Be Equal    ${{result}}    NEXT
 
 Landing Full Screen Gub Fails Fast
-    Configure Destination    GUB    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}
+    Configure Destination    GUB    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}    ${{LANDING_POPUP_GUB_CONTAINER}}    ${{LANDING_OFFLINE_MESSAGE}}
     Run Keyword And Expect Error
     ...    *LANDING_FULL_SCREEN_GUB_AFTER_ACTION*
     ...    Wait For Landing Destination    xpath=//android.webkit.WebView    40s
 
+Landing Popup Gub Fails Fast
+    Configure Destination    POPUP_GUB    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}    ${{LANDING_POPUP_GUB_CONTAINER}}    ${{LANDING_OFFLINE_MESSAGE}}
+    Run Keyword And Expect Error
+    ...    *LANDING_POPUP_GUB_AFTER_ACTION*
+    ...    Wait For Landing Destination    xpath=//android.webkit.WebView    40s
+
+Landing Offline State Fails Fast
+    Configure Destination    OFFLINE    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}    ${{LANDING_POPUP_GUB_CONTAINER}}    ${{LANDING_OFFLINE_MESSAGE}}
+    Run Keyword And Expect Error
+    ...    *LANDING_OFFLINE_AFTER_ACTION*
+    ...    Wait For Landing Destination    xpath=//android.webkit.WebView    40s
+
 Missing Landing Destination Is Bounded Failure
-    Configure Destination    NONE    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}
+    Configure Destination    NONE    xpath=//android.webkit.WebView    ${{LANDING_FULL_SCREEN_GUB_CTA}}    ${{LANDING_POPUP_GUB_CONTAINER}}    ${{LANDING_OFFLINE_MESSAGE}}
     Run Keyword And Expect Error
     ...    *LANDING_DESTINATION_NOT_OBSERVED*
     ...    Wait For Landing Destination    xpath=//android.webkit.WebView    40s
@@ -221,12 +239,12 @@ class F05LandingTransitionTests(unittest.TestCase):
             print('F05_' + ('DRYRUN' if dryrun else 'BEHAVIOR') + '_CASES=' + str(len(result.suite.tests)))
             for case in result.suite.tests:
                 print(case.name + '=' + case.status)
-            self.assertEqual(len(result.suite.tests), 10)
+            self.assertEqual(len(result.suite.tests), 12)
             self.assertEqual(code, 0, 'Synthetic F05 contract failed: ' + str(result.suite.statistics))
 
     def test_common_flow_preserves_proven_40s_terms_destination_budget(self):
         common_flow = (
-            ROOT / 'resources/keywords/common_onboarding/common_onboarding_keyword.resource'
+            ROOT / 'resources/keywords/common_onboarding.resource'
         ).read_text(encoding='utf-8')
         app_constants = (
             ROOT / 'resources/app/app_constants.resource'

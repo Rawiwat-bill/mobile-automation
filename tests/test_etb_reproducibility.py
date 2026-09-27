@@ -114,6 +114,43 @@ class ETBReproducibilityContractTests(unittest.TestCase):
                 "index-version\n",
             )
 
+
+    def test_candidate_snapshot_excludes_staged_unrelated_changes(self):
+        guard = _load_guard()
+        with tempfile.TemporaryDirectory(prefix="bbl-repro-boundary-") as temp:
+            repo = Path(temp) / "repo"
+            candidate = Path(temp) / "candidate"
+            repo.mkdir()
+            candidate.mkdir()
+            _git(repo, "init")
+            _git(repo, "config", "user.email", "synthetic@example.invalid")
+            _git(repo, "config", "user.name", "Synthetic Test")
+
+            (repo / "required.txt").write_text("head-required\n", encoding="utf-8")
+            (repo / "unrelated.txt").write_text("head-unrelated\n", encoding="utf-8")
+            _git(repo, "add", "required.txt", "unrelated.txt")
+            _git(repo, "commit", "-m", "base")
+
+            (repo / "required.txt").write_text("candidate-required\n", encoding="utf-8")
+            _git(repo, "add", "required.txt")
+            (repo / "unrelated.txt").write_text("staged-unrelated\n", encoding="utf-8")
+            _git(repo, "add", "unrelated.txt")
+
+            manifest = {
+                "required_current_paths": ["required.txt"],
+                "required_source_examples": [],
+            }
+            missing = guard.materialize_index_snapshot(repo, candidate, manifest)
+            self.assertEqual(missing, ())
+            self.assertEqual(
+                (candidate / "required.txt").read_text(encoding="utf-8"),
+                "candidate-required\n",
+            )
+            self.assertEqual(
+                (candidate / "unrelated.txt").read_text(encoding="utf-8"),
+                "head-unrelated\n",
+            )
+
     def test_current_index_direct_robot_dryrun_passes(self):
         guard = _load_guard()
         manifest = guard.load_manifest(ROOT)
