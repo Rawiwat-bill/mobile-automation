@@ -26,6 +26,14 @@ def transport_category(exc: BaseException) -> str:
     return "OTHER_TRANSPORT_FAILURE"
 
 
+def _url_configuration_error(url: str) -> str | None:
+    if not url:
+        return "CIS_CLEAR_URL_REQUIRED"
+    if urlsplit(url).scheme.lower() != "https":
+        return "CIS_CLEAR_URL_HTTPS_REQUIRED"
+    return None
+
+
 def probe(
     url: str,
     timeout_seconds: int,
@@ -36,11 +44,12 @@ def probe(
     create_default_context: Callable[..., Any],
 ) -> dict[str, Any]:
     """Check DNS, TCP, and TLS reachability without changing CIS state."""
-    if not url:
-        return {"ready": "NO", "transport_category": "CIS_CLEAR_URL_REQUIRED"}
+    configuration_error = _url_configuration_error(url)
+    if configuration_error:
+        return {"ready": "NO", "transport_category": configuration_error}
     endpoint = urlsplit(url)
     hostname = endpoint.hostname
-    port = endpoint.port or (443 if endpoint.scheme == "https" else 80)
+    port = endpoint.port or 443
     if not hostname:
         return {"ready": "NO", "transport_category": "OTHER_TRANSPORT_FAILURE"}
     try:
@@ -129,7 +138,8 @@ def clear_once(
     opener: Callable[..., Any],
     classify_transport: Callable[[BaseException], str],
 ) -> dict[str, Any]:
-    if not url:
+    configuration_error = _url_configuration_error(url)
+    if configuration_error:
         return {
             "http_status": None,
             "content_type": None,
@@ -138,7 +148,7 @@ def clear_once(
             "response_body_sha256": None,
             "response_structure": None,
             "http_status_name": None,
-            "error_type": "CIS_CLEAR_URL_REQUIRED",
+            "error_type": configuration_error,
         }
     request = Request(
         url,

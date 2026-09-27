@@ -293,6 +293,14 @@ class RunnerProfileContractTests(unittest.TestCase):
             )
             self.assert_success(result)
 
+    def test_runtime_network_helpers_exist_in_clean_checkout(self):
+        for relative in (
+            "tools/etb_network_preflight.py",
+            "tools/etb_proxy_server.py",
+        ):
+            with self.subTest(relative=relative):
+                self.assertTrue((ROOT / relative).is_file(), relative)
+
     def test_runner_is_orchestration_only(self):
         source = (ROOT / "tools/runner/etb_runner.sh").read_text(encoding="utf-8")
         for helper in (

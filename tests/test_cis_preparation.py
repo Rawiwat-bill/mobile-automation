@@ -339,6 +339,18 @@ class CisPreparationTests(unittest.TestCase):
             result = probe_cis_transport()
         self.assertEqual(result, {"ready": "NO", "transport_category": "DNS_RESOLUTION_FAILURE"})
 
+    def test_http_transport_is_rejected_before_network_access(self) -> None:
+        with patch("libraries.cis_preparation.CIS_CLEAR_URL", "http://example.invalid/cis-clear"), patch(
+            "libraries.cis_preparation.socket.getaddrinfo"
+        ) as getaddrinfo, patch("libraries.cis_preparation.socket.create_connection") as connect:
+            result = probe_cis_transport()
+        self.assertEqual(
+            result,
+            {"ready": "NO", "transport_category": "CIS_CLEAR_URL_HTTPS_REQUIRED"},
+        )
+        getaddrinfo.assert_not_called()
+        connect.assert_not_called()
+
     def test_transport_probe_classifies_tls_failure(self) -> None:
         class FakeConnection:
             def __enter__(self):
@@ -370,6 +382,18 @@ class CisPreparationTests(unittest.TestCase):
         self.assertEqual(result["message_category"], "TRANSPORT_FAILURE")
         self.assertEqual(result["error_type"], "TRANSPORT_ERROR")
         self.assertEqual(result["transport_category"], "TIMEOUT")
+        self.assertNotIn("MASKED_ID", repr(result))
+
+    def test_http_clear_request_is_rejected_before_citizen_id_is_sent(self) -> None:
+        opener = patch("libraries.cis_preparation._open_default").start()
+        self.addCleanup(patch.stopall)
+        with patch(
+            "libraries.cis_preparation.CIS_CLEAR_URL", "http://example.invalid/cis-clear"
+        ):
+            result = _clear_once("MASKED_ID")
+        self.assertEqual(result["message_category"], "CONFIGURATION_FAILURE")
+        self.assertEqual(result["error_type"], "CIS_CLEAR_URL_HTTPS_REQUIRED")
+        opener.return_value.assert_not_called()
         self.assertNotIn("MASKED_ID", repr(result))
 
     def test_external_readiness_scopes_a_valid_selected_case(self) -> None:
