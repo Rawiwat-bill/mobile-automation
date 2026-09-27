@@ -148,7 +148,7 @@ appium driver install uiautomator2@7.6.1
 
 ### 4.3 Clone และติดตั้ง Python dependencies
 
-ใน Git Bash ให้ clone ไว้ใน path ที่ไม่มีช่องว่าง เพราะ health-check runner ปัจจุบัน expand `ROBOT_OPTIONS` แบบไม่รองรับ path ที่มี space:
+ใน Git Bash แนะนำให้ clone ไว้ใน path ที่ไม่มีช่องว่างเพื่อให้ shell tooling และ project runner ทำงานสม่ำเสมอ:
 
 ```bash
 mkdir -p /c/automation
@@ -161,7 +161,7 @@ python -m venv .venv
 export PYTHON_BIN="$PWD/.venv/Scripts/python.exe"
 ```
 
-`./setup` ใช้ layout `.venv/bin/python` ของ macOS/Linux จึงไม่ใช้บน Windows ให้ใช้คำสั่งด้านบน และกำหนด `PYTHON_BIN` ทุกครั้งที่เปิด Git Bash ใหม่ก่อนเรียก `./run` หรือ `./health-check`
+`./setup` ใช้ layout `.venv/bin/python` ของ macOS/Linux จึงไม่ใช้บน Windows ให้ใช้คำสั่งด้านบน และกำหนด `PYTHON_BIN` ทุกครั้งที่เปิด Git Bash ใหม่ก่อนเรียก `./run`
 
 ## 5. ตรวจเครื่องก่อนรัน
 
@@ -226,7 +226,6 @@ ETB ใช้ `ETB_CASE_PROFILES` เป็น runtime profile source. ถ้า
 
 ```bash
 export NTB_TESTDATA="$PWD/testdata/onboarding/ntb.local.yaml"
-export HEALTH_CHECK_TESTDATA="$NTB_TESTDATA"
 export CIS_CLEAR_URL="<TEAM_APPROVED_CIS_CLEAR_URL>"
 export PDPA_BASE_URL="<TEAM_APPROVED_PDPA_BASE_URL>"
 export PDPA_CA_BUNDLE="$PWD/local/certs/cis-ca-bundle.pem"
@@ -241,13 +240,19 @@ export PDPA_CA_BUNDLE="$PWD/local/certs/cis-ca-bundle.pem"
 
 ## 8. Start Appium
 
-เปิด Terminal/Git Bash หนึ่งหน้าต่างและปล่อยให้ทำงานค้างไว้:
+ใช้ managed Appium launcher ของ project เป็น canonical entry point:
 
 ```bash
-appium --address 127.0.0.1 --relaxed-security
+pnpm appium
 ```
 
-Appium ต้องพร้อมที่ `http://127.0.0.1:4723` การใช้ `--relaxed-security` จำเป็นสำหรับ ADB interaction ที่ framework ใช้กับ React Native และต้อง bind ที่ `127.0.0.1` เท่านั้น ห้าม expose server นี้ผ่าน LAN, public interface หรือ port forwarding
+launcher จะ bind ที่ `127.0.0.1` และเปิดเฉพาะ `--allow-insecure=uiautomator2:adb_shell` ที่ framework ต้องใช้ ห้ามใช้ `--relaxed-security` เป็น default และห้าม expose server ผ่าน LAN, public interface หรือ port forwarding
+
+ถ้าต้องใช้ Inspector ให้เปิดแบบ explicit:
+
+```bash
+pnpm appium:inspector
+```
 
 ## 9. Run automation
 
@@ -286,23 +291,6 @@ ETB_ENVIRONMENT=SIT ANDROID_EXECUTION_TARGET=DIAGNOSTIC_CONTROL DEVICE_UDID=emul
 ./run ntb
 ```
 
-### Health check
-
-Dry-run ตรวจ syntax ได้โดยไม่ต้องมี device:
-
-```bash
-./health-check --dryrun
-```
-
-`./health-check` แบบไม่มี argument จะ default เป็น dry-run ส่วน **full health check เป็น real-device-only** เพราะ suite แตะ `Take Photo` จริง ห้ามรัน full health check บน emulator หากต้องการ full health check ให้ใช้:
-
-```bash
-export PYTHON_BIN="${PYTHON_BIN:-$PWD/.venv/bin/python}"
-export ROBOT_OPTIONS="--variable HEALTH_CHECK_TESTDATA:$HEALTH_CHECK_TESTDATA"
-bash tools/ci/run_health_check.sh
-```
-
-ETB full run มี environment-specific readiness gate: DEV ตรวจ CIS transport/backend, SIT ใช้ external CIS preparation confirmation และ DEV_MOCK ใช้ mock-build readiness contract; ทุก lane ยังใช้ case cleanup policy ตาม contract ส่วน health check ใช้ ADB log capture ที่ผ่าน redaction ตาม framework
 
 ## 10. ผลลัพธ์
 
@@ -310,12 +298,10 @@ ETB full run มี environment-specific readiness gate: DEV ตรวจ CIS tr
 |---|---|
 | `./run etb ...` | `reports/run-etb/` |
 | `./run ntb` | `reports/run-ntb/` |
-| full health check ผ่าน `tools/ci/run_health_check.sh` | `reports/ci-latest/` |
 
 ไฟล์หลัก:
 
 - ETB/NTB: `report.html`, `log.html`, `output.xml`
-- Full health check: `health_check_report.html`, `health_check_log.html`, `health_check_output.xml`
 
 ก่อนแชร์ report/log/screenshot ต้องตรวจและ mask PII, OTP, token, account และ device identifier ทุกครั้ง
 
@@ -328,7 +314,7 @@ ETB full run มี environment-specific readiness gate: DEV ตรวจ CIS tr
 | Appium doctor แจ้ง `JAVA_HOME` fail | ตั้ง `JAVA_HOME` ตามข้อ 3.1 หรือ 4.1 แล้วเปิด Terminal ใหม่ |
 | device เป็น `unauthorized` | ปลดล็อก device และกดอนุญาต USB debugging |
 | Appium หา driver ไม่พบ | `appium driver install uiautomator2@7.6.1` |
-| Appium ไม่พร้อม | เปิด server ด้วย `appium --address 127.0.0.1 --relaxed-security` |
+| Appium ไม่พร้อม | ใช้ `pnpm appium`; สำหรับ Inspector ใช้ `pnpm appium:inspector` |
 | APK ไม่พบ/เปิดไม่ได้ | ตรวจ environment ที่เลือก: DEV ใช้ `apps/android/app-dev.apk`; SIT ใช้ `apps/android/app-sit-mmplot2.apk`; DEV_MOCK ต้องมี approved mock target ติดตั้งอยู่ก่อน |
 | ETB readiness fail | ตรวจ readiness ตาม lane: DEV = VPN/CIS/backend, SIT = external CIS confirmation, DEV_MOCK = mock-build contract |
 | ETB หา profile ไม่พบ | ตรวจ `ETB_CASE_PROFILES`; ถ้าไม่กำหนดจะใช้ `testdata/onboarding/etb_cases.local.yaml` และ real run ต้องอ่านไฟล์ได้ |
@@ -345,3 +331,11 @@ rm -rf .venv
 ```
 
 Windows ให้ลบ `.venv` ใน Git Bash แล้วทำข้อ 4.3 ใหม่แทน `./setup` ถ้ายังแก้ไม่ได้ ให้เก็บข้อความ error ที่ไม่มีข้อมูลอ่อนไหว พร้อมผลจากข้อ 5 ส่งให้ทีม Automation
+
+
+## ETB Traceability and acceptance references
+
+- Full static traceability TC001–TC013: `docs/standards/ETB_TRACEABILITY_MATRIX.md`
+- Machine-readable registry: `configs/etb_traceability_full.json`
+- Current acceptance snapshot: `docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md`
+- Current remediation status: `docs/standards/BBL_REMEDIATION_CHECKLIST.md`

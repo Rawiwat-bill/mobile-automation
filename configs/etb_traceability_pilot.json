@@ -1,0 +1,389 @@
+{
+  "schema": "bbl-etb-traceability/v1",
+  "status": "PILOT",
+  "generated_at": "2026-09-19",
+  "scope": [
+    "TC-ETB-001",
+    "TC-ETB-002",
+    "TC-ETB-004"
+  ],
+  "excluded_cases": [
+    {
+      "case_id": "TC-ETB-003",
+      "status": "EXCLUDED_UNRESOLVED_REQUIREMENT_CONFLICT",
+      "contract_path": "testdata/onboarding/etb_cases.yaml",
+      "source_row": 6,
+      "reason": "Committed case contract retains mutually conflicting Product Selection outcomes and clarification_required is non-empty.",
+      "coverage_eligible": false
+    }
+  ],
+  "baseline": {
+    "git_head": "48c09a1cd975695c05da09b770c78cb502c38450",
+    "branch": "feature/etb-regression-pack",
+    "working_tree_state": "DIRTY_R1_UNSTAGED_OVERLAY",
+    "r0_mission_id": "1d9d65e0-d51a-4fdf-9599-ac4a32e09328",
+    "r1_mission_id": "1eb05d7b-c5b7-4e28-9bb3-a08097043e35"
+  },
+  "authority_model": {
+    "product_ux_flow": "APPROVED_OPO_FIGMA_WIKI",
+    "case_specific_expected_result": "ETB_CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE",
+    "automation_behavior": "CURRENT_REPOSITORY_CODE_AND_ASSERTIONS",
+    "ado_work_items": "LIVE_SCOPED_SUPPORTING_CONTEXT; REQUIREMENT_AUTHORITY_ONLY_WHEN_EXACT_STORY_AC_MAPPING_IS_RECORDED",
+    "runtime_result": "RUN_EVIDENCE_ONLY",
+    "rule": "No authority plane silently overwrites another."
+  },
+  "requirement_source": {
+    "contract_path": "testdata/onboarding/etb_cases.yaml",
+    "upstream_file": "docs/source/testcases/etb/current/QA_TestCase_OPO_ETB Registration_Automation.xlsx",
+    "upstream_sheet": "Test Cases",
+    "upstream_opened_in_r2": false,
+    "note": "R2 uses the committed case contract and its recorded workbook provenance; the workbook itself was not opened or copied."
+  },
+  "ado_binding": {
+    "status": "LIVE_READ_ONLY_VERIFIED",
+    "provider": "azure-devops",
+    "organization": {
+      "id": "BBLConsumer",
+      "name": "BBLConsumer"
+    },
+    "project": {
+      "id": "27c91f3d-8f31-4d1a-803d-3a114347293e",
+      "name": "ncbd"
+    },
+    "team": {
+      "id": "bb556cad-1818-45a3-8f50-e40de6c668ec",
+      "name": "Board OPO Build"
+    },
+    "board": {
+      "id": "f92a4b7f-caf3-44ef-966c-884c0cda6c78",
+      "name": "Stories"
+    },
+    "scope": {
+      "field": "System.AreaPath",
+      "values": [
+        {
+          "value": "ncbd\\NCBD Build\\OPO Build",
+          "includeChildren": false
+        }
+      ]
+    },
+    "effects": [
+      "READ",
+      "NETWORK"
+    ],
+    "write_back_allowed": false,
+    "verified_at": "2026-09-21T03:47:49.588Z"
+  },
+  "ado_supporting_evidence": [
+    {
+      "work_item_id": 108938,
+      "type": "Task",
+      "title": "[QA]Prepare test data for automation (Part1)",
+      "state": "Done",
+      "supports_case_ids": [
+        "TC-ETB-001",
+        "TC-ETB-002",
+        "TC-ETB-004"
+      ],
+      "supports": [
+        "PDPA_CLAUSE_6_ACCEPTED_TEST_DATA",
+        "PDPA_CLAUSE_6_BLANK_TEST_DATA",
+        "EXISTING_SAVING_AND_ESAVING_ACCOUNT_TEST_DATA"
+      ],
+      "workbook_bridge": "QA_TestCase_OPO_ETB Registration_MMP.xlsx",
+      "acceptance_criteria_present": false,
+      "case_semantics_authority": false
+    },
+    {
+      "work_item_id": 110544,
+      "type": "Task",
+      "title": "[QA]Prepare test data for automation (Part2)",
+      "state": "Doing",
+      "supports_case_ids": [
+        "TC-ETB-001",
+        "TC-ETB-002",
+        "TC-ETB-004"
+      ],
+      "supports": [
+        "PDPA_CLAUSE_6_ACCEPTED_TEST_DATA",
+        "PDPA_CLAUSE_6_BLANK_TEST_DATA",
+        "EXISTING_SAVING_AND_ESAVING_ACCOUNT_TEST_DATA"
+      ],
+      "workbook_bridge": "QA_TestCase_OPO_ETB Registration_MMP.xlsx",
+      "acceptance_criteria_present": false,
+      "case_semantics_authority": false
+    }
+  ],
+  "wiki_binding": {
+    "mode": "IMMUTABLE_PAGE_HASH_MANIFEST",
+    "snapshot_manifest": "configs/etb_wiki_snapshot.json",
+    "immutable_snapshot_hash": "a9224f102d6787f318de344f55a5c1eca0411bc424340b871b45cee41dad216d",
+    "snapshot_status": "VERIFIED_IMMUTABLE_BINDING",
+    "accepted_wiki_status": "READY_FOR_FIGMA_KNOWLEDGE_USE",
+    "note": "The pilot binds the exact local Wiki pages used by design evidence through a deterministic SHA-256 snapshot manifest."
+  },
+  "static_validation": {
+    "status": "PASS",
+    "evidence": [
+      "test:etb-docs-contract",
+      "test:etb-product-selection-state",
+      "test:etb-profile-contract",
+      "test:mobile-review-focused"
+    ],
+    "runtime_equivalence": false
+  },
+  "mappings": [
+    {
+      "mapping_id": "MAP-ETB-TC001-PDPA",
+      "case_id": "TC-ETB-001",
+      "requirement_provenance": {
+        "source_row": 4,
+        "contract_fields": [
+          "official_expected_result",
+          "interpretation_note",
+          "pdpa_policy"
+        ],
+        "expected_semantics": "PDPA Clause 6 must not be displayed for this case.",
+        "decision_basis": "Case contract canonical_field_precedence plus interpretation_note chooses Expected Result over the conflicting case title.",
+        "authority": "CASE_CONTRACT_REQUIREMENT_DECISION",
+        "conflict_preserved": true
+      },
+      "design_evidence": [
+        {
+          "source_id": "SRC-OPO-FIGMA-ETB-MMP-001",
+          "wiki_path": "local/obsidian-bbl/etb-mmp.md",
+          "node_ids": [
+            "5015:38807",
+            "5015:38809",
+            "5015:38813"
+          ],
+          "supports": "PDPA_CLAUSE_6_STRUCTURAL_PRESENCE_ONLY",
+          "case_semantics_authority": false
+        },
+        {
+          "source_id": "SRC-OPO-FIGMA-ETB-POST1-001",
+          "wiki_path": "local/obsidian-bbl/etb-post1.md",
+          "node_ids": [
+            "5015:38807"
+          ],
+          "supports": "PDPA_CLAUSE_6_STRUCTURAL_PRESENCE_ONLY",
+          "case_semantics_authority": false
+        },
+        {
+          "source_id": "SRC-OPO-FIGMA-3C-INTRO-MMP-001",
+          "wiki_path": "local/obsidian-bbl/3c-introduction-mmp.md",
+          "node_ids": [
+            "11003:14381",
+            "11003:14393"
+          ],
+          "supports": "POST_REGISTRATION_3C_DESIGN_CONTEXT_ONLY",
+          "case_semantics_authority": false,
+          "runtime_navigation_proven": false
+        }
+      ],
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-001 Positive Registration Success",
+        "implementation_status": "IMPLEMENTED",
+        "policy": {
+          "pdpa_policy": "MUST_SKIP",
+          "product_selection_policy": "REQUIRED"
+        },
+        "assertion_refs": [
+          {
+            "path": "resources/keywords/etb/etb_keywords.resource",
+            "keyword": "Complete ETB Onboarding",
+            "marker": "PDPA_MUST_SKIP_BUT_DISPLAYED"
+          },
+          {
+            "path": "resources/pages/etb/three_c_page.resource",
+            "keyword": "Assert TC001 Introduction And Control 3C",
+            "marker": "THREE_C_CONTROL_TRANSFER"
+          }
+        ]
+      },
+      "runtime_validation": "RUNTIME_EVIDENCE_REQUIRED",
+      "source_alignment": "DESIGN_STRUCTURE_PRESENT_REQUIREMENT_SEMANTICS_EXTERNAL_RUNTIME_PENDING",
+      "coverage_eligible": false
+    },
+    {
+      "mapping_id": "MAP-ETB-TC002-PDPA",
+      "case_id": "TC-ETB-002",
+      "requirement_provenance": {
+        "source_row": 5,
+        "contract_fields": [
+          "official_expected_result",
+          "pdpa_policy",
+          "pdpa_reset_required"
+        ],
+        "expected_semantics": "PDPA Clause 6 must be displayed and accepted for this case.",
+        "authority": "CASE_CONTRACT_REQUIREMENT",
+        "conflict_preserved": false
+      },
+      "design_evidence": [
+        {
+          "source_id": "SRC-OPO-FIGMA-ETB-MMP-001",
+          "wiki_path": "local/obsidian-bbl/etb-mmp.md",
+          "node_ids": [
+            "5015:38807",
+            "5015:38809",
+            "5015:38813"
+          ],
+          "supports": "PDPA_CLAUSE_6_STRUCTURAL_PRESENCE_ONLY",
+          "case_semantics_authority": false
+        },
+        {
+          "source_id": "SRC-OPO-FIGMA-ETB-POST1-001",
+          "wiki_path": "local/obsidian-bbl/etb-post1.md",
+          "node_ids": [
+            "5015:38807"
+          ],
+          "supports": "PDPA_CLAUSE_6_STRUCTURAL_PRESENCE_ONLY",
+          "case_semantics_authority": false
+        },
+        {
+          "source_id": "SRC-OPO-FIGMA-3C-INTRO-MMP-001",
+          "wiki_path": "local/obsidian-bbl/3c-introduction-mmp.md",
+          "node_ids": [
+            "11003:14381",
+            "11003:14393"
+          ],
+          "supports": "POST_REGISTRATION_3C_DESIGN_CONTEXT_ONLY",
+          "case_semantics_authority": false,
+          "runtime_navigation_proven": false
+        }
+      ],
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-002 Positive Registration With PDPA Clause 6",
+        "implementation_status": "IMPLEMENTED",
+        "policy": {
+          "pdpa_policy": "REQUIRED",
+          "product_selection_policy": "REQUIRED"
+        },
+        "assertion_refs": [
+          {
+            "path": "resources/keywords/etb/etb_keywords.resource",
+            "keyword": "Complete ETB Onboarding",
+            "marker": "PDPA_REQUIRED_BUT_SKIPPED"
+          },
+          {
+            "path": "resources/keywords/etb/etb_regression_keywords.resource",
+            "keyword": "Run ETB TC002 PDPA Case",
+            "marker": "CLEAR_REQUEST_SUBMITTED"
+          },
+          {
+            "path": "resources/pages/etb/three_c_page.resource",
+            "keyword": "Assert TC001 Introduction And Control 3C",
+            "marker": "THREE_C_CONTROL_TRANSFER"
+          }
+        ]
+      },
+      "runtime_validation": "RUNTIME_EVIDENCE_REQUIRED",
+      "source_alignment": "DESIGN_STRUCTURE_PRESENT_REQUIREMENT_SEMANTICS_EXTERNAL_RUNTIME_PENDING",
+      "coverage_eligible": false
+    },
+    {
+      "mapping_id": "MAP-ETB-TC004-PRODUCT-CATEGORIES",
+      "case_id": "TC-ETB-004",
+      "requirement_provenance": {
+        "source_row": 7,
+        "contract_fields": [
+          "official_expected_result",
+          "expected_product_categories",
+          "product_selection_policy"
+        ],
+        "expected_semantics": "Product Selection must show both Saving and e-Saving categories.",
+        "authority": "CASE_CONTRACT_REQUIREMENT",
+        "conflict_preserved": false
+      },
+      "design_evidence": [
+        {
+          "source_id": "SRC-OPO-FIGMA-ETB-MMP-001",
+          "wiki_path": "local/obsidian-bbl/etb-mmp.md",
+          "node_ids": [
+            "5015:39691",
+            "5015:39706",
+            "5015:39709"
+          ],
+          "supports": "PRODUCT_SELECTION_IMPORT_STRUCTURAL_PRESENCE_ONLY",
+          "case_semantics_authority": false,
+          "exact_saving_esaving_requirement_proven": false
+        },
+        {
+          "source_id": "SRC-OPO-FIGMA-ETB-POST1-001",
+          "wiki_path": "local/obsidian-bbl/etb-post1.md",
+          "node_ids": [
+            "5015:39691"
+          ],
+          "supports": "PRODUCT_SELECTION_IMPORT_STRUCTURAL_PRESENCE_ONLY",
+          "case_semantics_authority": false,
+          "exact_saving_esaving_requirement_proven": false
+        },
+        {
+          "source_id": "SRC-OPO-FIGMA-3C-INTRO-MMP-001",
+          "wiki_path": "local/obsidian-bbl/3c-introduction-mmp.md",
+          "node_ids": [
+            "11003:14381",
+            "11003:14393"
+          ],
+          "supports": "POST_REGISTRATION_3C_DESIGN_CONTEXT_ONLY",
+          "case_semantics_authority": false,
+          "runtime_navigation_proven": false
+        }
+      ],
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-004 Positive Product Selection Existing Accounts",
+        "implementation_status": "IMPLEMENTED",
+        "execution_policy_note": "Full-suite path is gated by TC003 control-home proof; isolated selector has an explicit override. This remains a separate P2 execution-policy issue.",
+        "policy": {
+          "product_selection_policy": "REQUIRED",
+          "expected_product_categories": [
+            "Saving",
+            "e-Saving"
+          ],
+          "pdpa_policy": "UNRESOLVED"
+        },
+        "assertion_refs": [
+          {
+            "path": "resources/pages/etb/product_selection_page.resource",
+            "keyword": "Assert Expected Product Categories Are Displayed",
+            "marker": "PRODUCT_SELECTION_PRODUCT_NAMES"
+          },
+          {
+            "path": "libraries/product_selection_contract.py",
+            "keyword": "validate_product_categories",
+            "marker": "PRODUCT_SELECTION_EXPECTED_CATEGORIES_MISSING"
+          },
+          {
+            "path": "resources/pages/etb/three_c_page.resource",
+            "keyword": "Assert TC001 Introduction And Control 3C",
+            "marker": "THREE_C_CONTROL_TRANSFER"
+          }
+        ]
+      },
+      "runtime_validation": "RUNTIME_EVIDENCE_REQUIRED",
+      "source_alignment": "DESIGN_STRUCTURE_PRESENT_REQUIREMENT_SEMANTICS_EXTERNAL_RUNTIME_PENDING",
+      "coverage_eligible": false
+    }
+  ],
+  "pilot_decision": {
+    "product_coverage_percentage_allowed": false,
+    "reason": "The pilot proves traceability and static assertions, not current runtime pass or a complete behavior denominator.",
+    "next_gate": "R3_RUN_RESULT_HARDENING_AND_RUNTIME_EVIDENCE"
+  },
+  "pilot_validation": {
+    "traceability_contract": "PASS_8_OF_8",
+    "docs_security_contract": "PASS_7_OF_7",
+    "delivery_readiness_contract": "PASS_5_OF_5",
+    "reproducibility_contract": "BLOCKED_BY_UNSTAGED_DELIVERY_SET",
+    "reproducibility_missing_from_git_index": [
+      "configs/etb_traceability_pilot.json",
+      "libraries/product_selection_contract.py",
+      "tests/test_etb_traceability_pilot.py"
+    ],
+    "runtime_execution": "NOT_RUN",
+    "note": "The reproducibility failure is an expected Git-index gate while R1/R2 remain unstaged; it must not be converted to runtime failure or bypassed by implicit staging."
+  }
+}
