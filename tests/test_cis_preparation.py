@@ -11,6 +11,8 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.error import URLError
 
+from libraries.cis import readiness as cis_readiness
+from libraries.cis import state as cis_state
 from libraries.cis_preparation import (
     _clear_once,
     cleanup_cis_state,
@@ -33,6 +35,119 @@ class _Response:
 
     def read(self):
         return b'{"status":"Success"}'
+
+
+class CisReadinessPolicyTests(unittest.TestCase):
+    def test_exact_external_confirmation_is_required(self) -> None:
+        self.assertEqual(
+            cis_readiness.readiness_status(
+                "EXTERNAL_TEAM_CONFIRMATION",
+                "EXTERNALLY_CONFIRMED",
+            ),
+            "EXTERNALLY_CONFIRMED",
+        )
+        self.assertEqual(
+            cis_readiness.readiness_status(
+                "EXTERNAL_TEAM_CONFIRMATION",
+                "YES",
+            ),
+            "NOT_READY",
+        )
+        self.assertEqual(
+            cis_readiness.readiness_status("*", "EXTERNALLY_CONFIRMED"),
+            "UNKNOWN",
+        )
+
+    def test_profile_audit_is_sanitized_and_classifies_policy(self) -> None:
+        cases = {
+            "etb_tc_001": {
+                "tc_id": "TC-ETB-001",
+                "profile": {"citizen_id": "SYNTHETIC_PRIVATE_A"},
+            },
+            "etb_tc_005": {
+                "tc_id": "TC-ETB-005",
+                "profile": {"citizen_id": "SYNTHETIC_PRIVATE_B"},
+            },
+        }
+        contracts = {
+            "etb_tc_001": {"terminal_state": "registration success"},
+            "etb_tc_005": {"terminal_state": "popup closed"},
+        }
+        audit, preparation, cleanup = cis_readiness.build_profile_audit(
+            cases,
+            contracts,
+        )
+        rendered = repr((audit, preparation, cleanup))
+        self.assertNotIn("SYNTHETIC_PRIVATE_A", rendered)
+        self.assertNotIn("SYNTHETIC_PRIVATE_B", rendered)
+        self.assertEqual(
+            audit["case_dependencies"]["TC-ETB-001"]["cis_dependency"],
+            "STATEFUL_PROFILE_REQUIRED",
+        )
+        self.assertEqual(
+            audit["case_dependencies"]["TC-ETB-005"]["cis_dependency"],
+            "NEGATIVE_FLOW_REUSABLE_PROFILE",
+        )
+        self.assertEqual(
+            audit["case_dependencies"]["TC-ETB-005"]["persistent_mutation"],
+            "NO",
+        )
+
+
+class CisStatePolicyTests(unittest.TestCase):
+    def test_clear_response_normalization_preserves_public_contract(self) -> None:
+        success = cis_state.normalize_clear_response(
+            "PRE_TEST",
+            {
+                "http_status": 200,
+                "business_result_code": "Success",
+                "message_category": "SUCCESS_SIGNAL_PRESENT",
+            },
+        )
+        absent = cis_state.normalize_clear_response(
+            "POST_TEST",
+            {
+                "http_status": 404,
+                "business_result_code": "NOT_FOUND",
+                "message_category": "PROFILE_NOT_FOUND",
+            },
+        )
+        failure = cis_state.normalize_clear_response(
+            "PRE_TEST",
+            {
+                "http_status": 500,
+                "business_result_code": "INTERNAL_SERVER_ERROR",
+                "message_category": "HTTP_ERROR_BODY",
+            },
+        )
+
+        self.assertEqual(success["cis_clear_result"], "CLEARED")
+        self.assertEqual(success["cis_state_ready"], "YES")
+        self.assertEqual(absent["cis_clear_result"], "ALREADY_CLEARED")
+        self.assertEqual(absent["cis_state_ready"], "YES")
+        self.assertEqual(failure["cis_clear_result"], "FAILED")
+        self.assertEqual(failure["cis_state_ready"], "NO")
+        self.assertEqual(success["operation_count"], 1)
+
+    def test_external_lifecycle_results_are_non_mutating(self) -> None:
+        preparation = cis_state.external_preparation_result(
+            "EXTERNALLY_CONFIRMED",
+            sit_mode="EXTERNAL_PREPARED",
+        )
+        cleanup = cis_state.external_cleanup_result(
+            sit_mode="EXTERNAL_PREPARED",
+        )
+        self.assertEqual(preparation["cis_clear"], "NOT_AUTHORIZED")
+        self.assertEqual(preparation["operation_count"], 0)
+        self.assertEqual(cleanup["cis_clear"], "NOT_ATTEMPTED")
+        self.assertEqual(cleanup["operation_count"], 0)
+        self.assertEqual(cleanup["post_cis_cleanup_owner"], "EXTERNAL_TEAM")
+
+    def test_mock_result_never_attempts_transport(self) -> None:
+        result = cis_state.mock_result("PRE_TEST")
+        self.assertEqual(result["cis_clear"], "NOT_APPLICABLE")
+        self.assertEqual(result["transport_category"], "NOT_ATTEMPTED")
+        self.assertEqual(result["operation_count"], 0)
 
 
 class CisPreparationTests(unittest.TestCase):
@@ -59,6 +174,18 @@ class CisPreparationTests(unittest.TestCase):
         else:
             raise AssertionError(command)
         return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    def test_cis_preparation_is_a_facade_over_internal_responsibilities(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[1] / "libraries/cis_preparation.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("cis_mock.validate_mock_build_context", source)
+        self.assertIn("cis_evidence.write_lifecycle_result", source)
+        self.assertIn("cis_evidence.write_profile_audit", source)
+        self.assertIn("cis_evidence.write_readiness_result", source)
+        self.assertNotIn("write_text(", source)
+        self.assertNotIn("re.search(", source)
+        self.assertLessEqual(len(source.splitlines()), 270)
 
     def test_exact_mock_context_is_not_applicable_and_makes_no_http_call(self) -> None:
         with patch.dict(os.environ, {

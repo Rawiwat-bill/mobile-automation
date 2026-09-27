@@ -4,8 +4,8 @@ Documentation       ETB mobile OTP page keywords.
 Library             Collections
 Library             String
 Library             AppiumLibrary
-Library             OperatingSystem
-Library             ../../../libraries/evidence_scope.py
+Resource    ../../contracts/flow_states.resource
+Resource    ../../diagnostics/mobile_otp_observability.resource
 Resource            ../../../resources/app/app_constants.resource
 Resource            ../../../resources/pages/etb/check_pdpa_clause_no_6_page.resource
 Resource            ../../../resources/pages/etb/intro_face_scan_page.resource
@@ -44,11 +44,7 @@ Detect Post OTP Screen
     ...    ${ANDROID_RESOLVER_TITLE}
     ...    ${probe_timeout}
     IF    ${resolver_visible}
-        ${evidence_dir}=    Resolve Private Evidence Dir    ${OUTPUT DIR}
-        Capture Page Screenshot    ${evidence_dir}/android_resolver_unexpected.png
-        ${source}=    Get Source
-        ${sanitized_source}=    Evaluate    __import__('re').sub(r'(?i)(text|content-desc|hint|value|password)="[^"]*"', r'\\1="[REDACTED]"', $source)
-        Create File    ${evidence_dir}/android_resolver_unexpected.xml    ${sanitized_source}
+        Capture Unexpected Android Resolver Evidence    ${OUTPUT DIR}
         Fail    ANDROID_RESOLVER_UNEXPECTED_AFTER_ENVIRONMENT_ISOLATION
     END
 
@@ -56,13 +52,13 @@ Detect Post OTP Screen
     ...    Wait Until Element Is Visible
     ...    ${CHECK_PDPA_CLAUSE_NO_6_TITLE_TEXT}
     ...    ${probe_timeout}
-    IF    ${pdpa_visible}    RETURN    CHECK_PDPA_CLAUSE_NO_6
+    IF    ${pdpa_visible}    RETURN    ${FLOW_STATE_CHECK_PDPA_CLAUSE_NO_6}
 
     ${intro_face_visible}=    Run Keyword And Return Status
     ...    Wait Until Element Is Visible
     ...    ${INTRO_FACE_SCAN_TITLE_TEXT}
     ...    ${probe_timeout}
-    IF    ${intro_face_visible}    RETURN    INTRO_FACE_SCAN
+    IF    ${intro_face_visible}    RETURN    ${FLOW_STATE_INTRO_FACE_SCAN}
 
     Fail    Post OTP screen not ready yet
 
@@ -71,13 +67,13 @@ Detect Post OTP Destination
     ...    Wait Until Element Is Visible
     ...    ${CHECK_PDPA_CLAUSE_NO_6_TITLE_TEXT}
     ...    2s
-    IF    ${pdpa_visible}    RETURN    CHECK_PDPA_CLAUSE_NO_6
+    IF    ${pdpa_visible}    RETURN    ${FLOW_STATE_CHECK_PDPA_CLAUSE_NO_6}
 
     ${intro_face_visible}=    Run Keyword And Return Status
     ...    Wait Until Element Is Visible
     ...    ${INTRO_FACE_SCAN_TITLE_TEXT}
     ...    2s
-    IF    ${intro_face_visible}    RETURN    INTRO_FACE_SCAN
+    IF    ${intro_face_visible}    RETURN    ${FLOW_STATE_INTRO_FACE_SCAN}
 
     ${landing_visible}=    Run Keyword And Return Status
     ...    Landing Screen Should Be Visible
@@ -89,11 +85,7 @@ Detect Post OTP Destination
 
 Resolve ETB Android Resolver
     [Documentation]    Defensive compatibility keyword; resolver selection is forbidden.
-    ${evidence_dir}=    Resolve Private Evidence Dir    ${OUTPUT DIR}
-    Capture Page Screenshot    ${evidence_dir}/android_resolver_unexpected.png
-    ${source}=    Get Source
-    ${sanitized_source}=    Evaluate    __import__('re').sub(r'(?i)(text|content-desc|hint|value|password)="[^"]*"', r'\\1="[REDACTED]"', $source)
-    Create File    ${evidence_dir}/android_resolver_unexpected.xml    ${sanitized_source}
+    Capture Unexpected Android Resolver Evidence    ${OUTPUT DIR}
     Fail    ANDROID_RESOLVER_UNEXPECTED_AFTER_ENVIRONMENT_ISOLATION
 
 ETB Resolver Target Should Be Foreground

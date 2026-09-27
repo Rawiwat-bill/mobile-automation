@@ -2,9 +2,12 @@
 Documentation       ETB Product Selection page keywords.
 
 Library             AppiumLibrary
-Library             ../../../libraries/visual_timeline.py
+Library             Collections
+Library             ../../../libraries/product_selection_contract.py
+Resource            ../../diagnostics/product_selection_observability.resource
 Resource            ../../../resources/app/app_constants.resource
 Resource            ../../../locators/android/etb/product_selection_locators.resource
+Resource            ../../../resources/keywords/appium_expectations.resource
 
 *** Keywords ***
 Wait Until Product Selection Screen Is Displayed
@@ -24,29 +27,49 @@ Wait Until Product Selection Screen Is Displayed
     Fail    ${title_error}
 
 Product Selection Screen Should Be Displayed
-    Element Should Be Visible    ${PRODUCT_SELECTION_TITLE}
-    Element Should Be Visible    ${PRODUCT_SELECTION_DESCRIPTION}
+    Element Should Be Visible Now    ${PRODUCT_SELECTION_TITLE}
+    Element Should Be Visible Now    ${PRODUCT_SELECTION_DESCRIPTION}
 
 Complete Product Selection
+    [Arguments]    ${expected_product_categories}=${NONE}
     Wait Until Product Selection Screen Is Displayed
-    Run Keyword And Ignore Error    Record Visual Timeline Event    PS0_PRODUCT_SELECTION_VISIBLE    PRODUCT_SELECTION    ${OUTPUT DIR}/visual_timeline
+    Record Product Selection Visible    ${OUTPUT DIR}
     ${checkboxes}=    Get WebElements    ${PRODUCT_SELECTION_CHECKBOXES}
     Should Not Be Empty    ${checkboxes}    PRODUCT_SELECTION_NO_ELIGIBLE_ITEMS
-    Run Keyword And Ignore Error    Record Visual Timeline Event    PS1_ROWS_AVAILABLE    PRODUCT_SELECTION    ${OUTPUT DIR}/visual_timeline    screenshot=${False}
+    Record Product Selection Rows Available    ${OUTPUT DIR}
+    Assert Expected Product Categories Are Displayed    ${expected_product_categories}
     ${selected_count}=    Count Selected Product Checkboxes    ${checkboxes}
-    Run Keyword And Ignore Error    Record Visual Timeline Event    PS2_SELECTION_STATE    PRODUCT_SELECTION    ${OUTPUT DIR}/visual_timeline
+    Record Product Selection State    ${OUTPUT DIR}
     IF    ${selected_count} == 0
-        Run Keyword And Ignore Error    Record Visual Timeline Event    PS3_SELECTION_ACTION_START    PRODUCT_SELECTION    ${OUTPUT DIR}/visual_timeline    action=SELECT_FIRST_ENABLED
+        Record Product Selection Action Start    ${OUTPUT DIR}
         Select First Enabled Product Checkbox    ${checkboxes}
         ${selected_count}=    Count Selected Product Checkboxes    ${checkboxes}
-        Run Keyword And Ignore Error    Record Visual Timeline Event    PS3_SELECTION_ACTION    PRODUCT_SELECTION    ${OUTPUT DIR}/visual_timeline    action=SELECT_FIRST_ENABLED_COMPLETED
+        Record Product Selection Action End    ${OUTPUT DIR}
     END
     Should Be True    ${selected_count} >= 1    PRODUCT_SELECTION_NO_ITEM_SELECTED
     Wait Until Element Is Visible    ${PRODUCT_SELECTION_CONFIRM}    ${NCBD_LOADING_TIMEOUT}
-    Run Keyword And Ignore Error    Record Visual Timeline Event    PS4_CONFIRM_AVAILABLE    PRODUCT_SELECTION    ${OUTPUT DIR}/visual_timeline    screenshot=${False}
-    Run Keyword And Ignore Error    Record Visual Timeline Event    CONFIRM_CLICK_START    PRODUCT_SELECTION    ${OUTPUT DIR}/visual_timeline    action=CLICK_CONFIRM    screenshot=${False}
+    Record Product Selection Confirm Available    ${OUTPUT DIR}
+    Record Product Selection Confirm Start    ${OUTPUT DIR}
     Click Element    ${PRODUCT_SELECTION_CONFIRM}
-    Run Keyword And Ignore Error    Record Visual Timeline Event    PS5_CONFIRM_CLICK_END    LOADING_OR_INTERMEDIATE    ${OUTPUT DIR}/visual_timeline    action=CLICK_CONFIRM_COMPLETED
+    Record Product Selection Confirm End    ${OUTPUT DIR}
+
+Assert Expected Product Categories Are Displayed
+    [Arguments]    ${expected_categories}
+    IF    $expected_categories is None
+        RETURN
+    END
+    ${expected_count}=    Get Length    ${expected_categories}
+    IF    ${expected_count} == 0
+        RETURN
+    END
+    ${name_elements}=    Get WebElements    ${PRODUCT_SELECTION_PRODUCT_NAMES}
+    Should Not Be Empty    ${name_elements}    PRODUCT_SELECTION_PRODUCT_NAMES_NOT_FOUND
+    ${actual_names}=    Create List
+    FOR    ${element}    IN    @{name_elements}
+        ${name}=    Get Text    ${element}
+        Append To List    ${actual_names}    ${name}
+    END
+    Validate Product Categories    ${actual_names}    ${expected_categories}
 
 Count Selected Product Checkboxes
     [Arguments]    ${checkboxes}

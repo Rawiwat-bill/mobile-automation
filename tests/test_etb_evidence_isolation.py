@@ -116,35 +116,30 @@ class ETBEvidenceIsolationTests(unittest.TestCase):
                     f"{relative}: private evidence resolver missing",
                 )
 
-        cis = _read("libraries/cis_preparation.py")
-        self.assertTrue("evidence_scope" in cis, "cis_preparation: shared scope import missing")
-        self.assertTrue(
-            "resolve_scoped_output_dir" in cis,
-            "cis_preparation: scoped output resolver missing",
-        )
+        cis_evidence = _read("libraries/cis/evidence.py")
+        self.assertIn("evidence_scope", cis_evidence)
+        self.assertIn("resolve_scoped_output_dir", cis_evidence)
 
-    def test_robot_direct_private_writers_use_scoped_directory(self) -> None:
-        for relative in (
-            "resources/app/app_keywords.resource",
-            "resources/pages/etb/mobile_otp_page.resource",
-            "resources/pages/common_onboarding/terms_and_conditions_page.resource",
-        ):
-            with self.subTest(relative=relative):
-                text = _read(relative)
-                self.assertTrue("evidence_scope.py" in text, f"{relative}: evidence scope library missing")
-                self.assertTrue(
-                    "Resolve Private Evidence Dir" in text,
-                    f"{relative}: scoped Robot evidence keyword missing",
-                )
-                self.assertFalse(
-                    "${OUTPUT DIR}/private_local" in text,
-                    f"{relative}: legacy shared private_local path remains",
-                )
+        cis = _read("libraries/cis_preparation.py")
+        self.assertIn("cis_evidence.write_lifecycle_result", cis)
+
+    def test_robot_private_writers_use_scoped_directory_or_shared_adapter(self) -> None:
+        app_keywords = _read("resources/app/app_keywords.resource")
+        self.assertIn("evidence_scope.py", app_keywords)
+        self.assertIn("Resolve Private Evidence Dir", app_keywords)
+        self.assertNotIn("${OUTPUT DIR}/private_local", app_keywords)
+
+        terms = _read("resources/pages/common_onboarding/terms_and_conditions_page.resource")
+        self.assertIn("diagnostics/etb_observability.resource", terms)
+        self.assertIn("Record ETB Evidence Capture", terms)
+        self.assertNotIn("${OUTPUT DIR}/private_local", terms)
 
     def test_runner_exports_one_run_id_before_runtime(self) -> None:
-        text = _read("run")
-        self.assertTrue("ETB_RUN_ID" in text, "runner: ETB_RUN_ID missing")
-        self.assertTrue("export ETB_RUN_ID" in text, "runner: ETB_RUN_ID is not exported")
+        config = _read("tools/runner/etb_configuration.sh")
+        self.assertIn("ETB_RUN_ID", config, "runner configuration: ETB_RUN_ID missing")
+        self.assertIn("export ETB_RUN_ID", config, "runner configuration: ETB_RUN_ID is not exported")
+        self.assertIn('ETB_OUTPUT="$ETB_OUTPUT_BASE/$ETB_RUN_ID"', config)
+        self.assertLess(config.index("export ETB_RUN_ID"), config.index("initialize_etb_run_output"))
 
     def test_etb_robot_dryrun_after_scoping(self) -> None:
         with tempfile.TemporaryDirectory(prefix="etb-evidence-dryrun-") as temp:

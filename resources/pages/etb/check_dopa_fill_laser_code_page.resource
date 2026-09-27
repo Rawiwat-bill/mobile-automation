@@ -32,3 +32,8 @@ Input Laser Code
     END
 
     Hide Keyboard
+
+Tap Check DOPA Next
+    [Documentation]    Submit the completed laser-code screen.
+    Wait Until Element Is Visible    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}    ${NCBD_LOADING_TIMEOUT}
+    Click Element    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}

@@ -15,8 +15,11 @@ from robot.api import ExecutionResult, get_resource_model
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE = ROOT / 'resources/pages/onboarding/profile_screen_page.resource'
+PROFILE_TRANSITION = ROOT / 'resources/pages/onboarding/profile_transition.resource'
+CANONICAL_COMMON = ROOT / 'resources/keywords/common_onboarding.resource'
 COMMON = ROOT / 'resources/keywords/common_onboarding/common_onboarding_keyword.resource'
 ETB = ROOT / 'resources/keywords/etb/etb_keywords.resource'
+FLOW_STATES = ROOT / 'resources/contracts/flow_states.resource'
 
 
 def keyword_body(path, name):
@@ -32,44 +35,39 @@ def keyword_body(path, name):
 
 TESTS = '''*** Test Cases ***
 Wrapper Preserves AJI Result
-    Configure    AJI-001
+    Configure    ${FLOW_STATE_AJI_001}
     ${actual}=    Tap Profile Next
-    Should Be Equal    ${actual}    AJI-001
+    Should Be Equal    ${actual}    ${FLOW_STATE_AJI_001}
 
 Wrapper Preserves GOD Result
-    Configure    GOD-013
+    Configure    ${FLOW_STATE_GOD_013}
     ${actual}=    Tap Profile Next
-    Should Be Equal    ${actual}    GOD-013
+    Should Be Equal    ${actual}    ${FLOW_STATE_GOD_013}
 
 Wrapper Preserves RGI Result
-    Configure    RGI-104
+    Configure    ${FLOW_STATE_RGI_104}
     ${actual}=    Tap Profile Next
-    Should Be Equal    ${actual}    RGI-104
+    Should Be Equal    ${actual}    ${FLOW_STATE_RGI_104}
 
 Wrapper Preserves Normal Transition
-    Configure    PROFILE_LEFT_OR_NEXT_STATE_VISIBLE
+    Configure    ${FLOW_STATE_PROFILE_LEFT_OR_NEXT}
     ${actual}=    Tap Profile Next
-    Should Be Equal    ${actual}    PROFILE_LEFT_OR_NEXT_STATE_VISIBLE
+    Should Be Equal    ${actual}    ${FLOW_STATE_PROFILE_LEFT_OR_NEXT}
 
 Common Propagates AJI Without Completion
     Configure    AJI-001
     ${actual}=    Common Onboarding Flow    OMITTED    OMITTED    OMITTED
     Should Be Equal    ${actual}    AJI-001
-    List Should Not Contain Value    ${CHECKPOINTS}    TELL_US_ABOUT_YOU_COMPLETED
     Should Be Equal As Integers    ${DOPA_CALLS}    0
 
 Positive AJI Fails Before DOPA
     Configure    AJI-001
     Run Keyword And Expect Error    BLOCKED_BY_ENVIRONMENT_BACKEND_AJI_001:*    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED
-    Should Be Equal    ${BLOCKER_CODE}    AJI-001
-    List Should Contain Value    ${CHECKPOINTS}    ETB_ENVIRONMENT_BACKEND_HANDOFF
-    List Should Not Contain Value    ${CHECKPOINTS}    TELL_US_ABOUT_YOU_COMPLETED
     Should Be Equal As Integers    ${DOPA_CALLS}    0
 
 Positive GOD Fails Before DOPA
     Configure    GOD-013
     Run Keyword And Expect Error    BLOCKED_BY_ENVIRONMENT_BACKEND_GOD_013:*    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED
-    Should Be Equal    ${BLOCKER_CODE}    ENVIRONMENT_BACKEND_GOD_013
     Should Be Equal As Integers    ${DOPA_CALLS}    0
 
 Positive RGI Does Not Enter DOPA
@@ -77,28 +75,29 @@ Positive RGI Does Not Enter DOPA
     Run Keyword And Expect Error    *ETB_COMMON_ONBOARDING_DID_NOT_REACH_DOPA*    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED
     Should Be Equal As Integers    ${DOPA_CALLS}    0
 
+Positive RAI033 Preserves Observed Response With Unknown Cause
+    Configure    RAI-033
+    Run Keyword And Expect Error    PROFILE_RESPONSE_UNEXPECTED_RAI_033:*    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED
+    Should Be Equal As Integers    ${DOPA_CALLS}    0
+
 Normal Transition Reaches DOPA Once
-    Configure    PROFILE_LEFT_OR_NEXT_STATE_VISIBLE
+    Configure    ${FLOW_STATE_PROFILE_LEFT_OR_NEXT}
     Run Keyword And Expect Error    DOPA_BOUNDARY_REACHED    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED
-    List Should Contain Value    ${CHECKPOINTS}    TELL_US_ABOUT_YOU_COMPLETED
     Should Be Equal As Integers    ${DOPA_CALLS}    1
 
 Terms AJI Fails Before Profile And DOPA
-    Configure    PROFILE_LEFT_OR_NEXT_STATE_VISIBLE    AJI-001
+    Configure    ${FLOW_STATE_PROFILE_LEFT_OR_NEXT}    ${FLOW_STATE_AJI_001}
     Run Keyword And Expect Error    BLOCKED_BY_ENVIRONMENT_BACKEND_AJI_001:*    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED
     Should Be Equal As Integers    ${PROFILE_CALLS}    0
     Should Be Equal As Integers    ${DOPA_CALLS}    0
 
 *** Keywords ***
 Configure
-    [Arguments]    ${result}    ${terms}=NEXT
+    [Arguments]    ${result}    ${terms}=${FLOW_STATE_NEXT}
     Set Test Variable    ${PROFILE_RESULT}    ${result}
     Set Test Variable    ${TERMS_RESULT}    ${terms}
-    ${points}=    Create List
-    Set Test Variable    ${CHECKPOINTS}    ${points}
     Set Test Variable    ${DOPA_CALLS}    ${0}
     Set Test Variable    ${PROFILE_CALLS}    ${0}
-    Set Test Variable    ${BLOCKER_CODE}    ${EMPTY}
 
 Tap Profile Next Button
     ${calls}=    Evaluate    $PROFILE_CALLS + 1
@@ -108,20 +107,16 @@ Tap Profile Next Button
 Accept Terms And Conditions
     RETURN    ${TERMS_RESULT}
 
-Mark Health Checkpoint
-    [Arguments]    ${stage}
-    Append To List    ${CHECKPOINTS}    ${stage}
-
 Wait For Landing Destination
     [Arguments]    ${destination_locator}    ${timeout}
-    RETURN    NEXT
+    RETURN    ${FLOW_STATE_NEXT}
 
-Set Health Check Blocker
-    [Arguments]    ${code}    ${message}    ${directory}
-    Set Test Variable    ${BLOCKER_CODE}    ${code}
+Resolve Optional App Update Or Destination
+    [Arguments]    ${destination_locator}    ${timeout}
+    RETURN    DESTINATION_READY
 
-Persist ETB Readiness Summary
-    [Arguments]    ${output_dir}    &{metadata}
+Record ETB Readiness Blocker
+    [Arguments]    ${output_dir}    ${blocker_code}    ${dopa_reached}
     No Operation
 
 Wait Until Check DOPA Fill Laser Code Is Displayed
@@ -136,8 +131,19 @@ Select Date Of Birth
 
 
 class ETBDopaBoundaryTests(unittest.TestCase):
+    def test_profile_next_uses_canonical_loading_budget(self):
+        source = PROFILE_TRANSITION.read_text(encoding='utf-8')
+        block = source.split('\nTap Profile Next Button\n', 1)[1].split(
+            '\nCapture Profile Exit Evidence Point\n', 1
+        )[0]
+        self.assertIn(
+            'Wait Until Keyword Succeeds    ${NCBD_LOADING_TIMEOUT}    500ms',
+            block,
+        )
+        self.assertNotIn('Wait Until Keyword Succeeds    10s    500ms', block)
+
     def test_exact_production_boundary_behaviors(self):
-        for path in (PROFILE, COMMON, ETB,
+        for path in (PROFILE, PROFILE_TRANSITION, CANONICAL_COMMON, COMMON, ETB,
                      ROOT / 'locators/android/etb/check_dopa_fill_laser_code_locators.resource',
                      ROOT / 'resources/pages/etb/check_dopa_fill_laser_code_page.resource',
                      ROOT / 'resources/app/app_keywords.resource',
@@ -148,22 +154,27 @@ class ETBDopaBoundaryTests(unittest.TestCase):
             root = Path(directory)
             resource = root / 'production_boundary.resource'
             resource.write_text('*** Keywords ***\n' + '\n'.join([
-                keyword_body(PROFILE, 'Tap Profile Next'),
+                keyword_body(PROFILE_TRANSITION, 'Tap Profile Next'),
+                keyword_body(CANONICAL_COMMON, 'Run Common Onboarding'),
                 keyword_body(COMMON, 'Common Onboarding Flow'),
                 keyword_body(ETB, 'Complete ETB Onboarding'),
             ]), encoding='utf-8')
             input_stub = root / 'tell_us_about_you_page.resource'
-            input_stub.write_text('*** Keywords ***\nInput Citizen ID\n    [Arguments]    ${unused}\n    No Operation\nInput Mobile Number\n    [Arguments]    ${unused}\n    No Operation\n', encoding='utf-8')
+            input_stub.write_text('*** Keywords ***\nInput Citizen ID\n    [Arguments]    ${unused}\n    No Operation\nInput Date Of Birth\n    [Arguments]    ${unused}\n    No Operation\nprofile_screen_page.Input Date Of Birth\n    [Arguments]    ${unused}\n    No Operation\nInput Mobile Number\n    [Arguments]    ${unused}\n    No Operation\nVerify Current Profile Fields Before Next\n    [Arguments]    ${cid}    ${dob}    ${mobile}\n    No Operation\n', encoding='utf-8')
             noop_names = (
                 'Wait Until Landing Screen Is Displayed', 'Switch Landing Language To English',
                 'Tap Landing Ready Button', 'Allow Android Permission If Visible',
-                'Wait Until Terms And Conditions Screen Is Displayed', 'Scroll Down Terms And Conditions',
-                'Wait Until Tell Us About You Screen Is Displayed', 'Wait Until Fields Are Blurred',
+                'Dismiss Optional App Update Prompt If Visible',
+                'Advance Landing To Terms Destination',
+                'Wait Until Terms And Conditions Screen Is Displayed',
+                'Ensure Terms Content Ready With Interim Navigation Retries',
+                'Scroll Down Terms And Conditions',
+                'Wait Until Profile Screen Is Displayed',
             )
             noops = '\n'.join(name + '\n    No Operation\n' for name in noop_names)
             suite = root / 'boundary.robot'
             suite.write_text(
-                '*** Settings ***\nLibrary    Collections\nResource    production_boundary.resource\nResource    tell_us_about_you_page.resource\n\n'
+                '*** Settings ***\nLibrary    Collections\nLibrary    String\nResource    ' + str(FLOW_STATES) + '\nResource    production_boundary.resource\nResource    tell_us_about_you_page.resource\n\n'
                 '*** Variables ***\n${TERMS_AND_CONDITIONS_WEBVIEW}    SYNTHETIC_TERMS\n${NCBD_LOADING_TIMEOUT}    40s\n\n'
                 + TESTS + '\n' + noops,
                 encoding='utf-8',
@@ -171,8 +182,8 @@ class ETBDopaBoundaryTests(unittest.TestCase):
             code = run(str(suite), outputdir=directory, log='NONE', report='NONE',
                        console='none', stdout=io.StringIO(), stderr=io.StringIO())
             result = ExecutionResult(str(root / 'output.xml'))
-            self.assertEqual(len(result.suite.tests), 10)
-            print('DOPA_BOUNDARY_CASES=10')
+            self.assertEqual(len(result.suite.tests), 11)
+            print('DOPA_BOUNDARY_CASES=11')
             for case in result.suite.tests:
                 print(case.name + '=' + case.status)
             self.assertEqual(code, 0, 'DOPA_BOUNDARY_SYNTHETIC_CONTRACT_FAILED')

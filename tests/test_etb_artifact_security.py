@@ -20,18 +20,27 @@ class EtbArtifactSecurityContractTests(unittest.TestCase):
         self.assertNotIn("${OUTPUT DIR}/private_local", block)
 
     def test_mobile_otp_raw_screenshots_and_sources_are_private_local(self):
-        text = read("resources/pages/etb/mobile_otp_page.resource")
-        self.assertIn("evidence_scope.py", text)
-        self.assertIn("Resolve Private Evidence Dir    ${OUTPUT DIR}", text)
-        for line in text.splitlines():
-            stripped = line.strip()
-            if (
-                stripped.startswith("Capture Page Screenshot")
-                or stripped.startswith("Create File")
-            ) and "android_resolver_unexpected" in stripped:
-                self.assertIn("${evidence_dir}/", stripped)
-                self.assertNotIn("${OUTPUT DIR}/private_local/", stripped)
-        self.assertIn("[REDACTED]", text)
+        page = read("resources/pages/etb/mobile_otp_page.resource")
+        diagnostics = read("resources/diagnostics/mobile_otp_observability.resource")
+
+        self.assertIn("mobile_otp_observability.resource", page)
+        self.assertNotIn("evidence_scope.py", page)
+        self.assertNotIn("Resolve Private Evidence Dir", page)
+        self.assertNotIn("Capture Page Screenshot", page)
+        self.assertNotIn("Create File", page)
+
+        self.assertIn("evidence_scope.py", diagnostics)
+        self.assertIn("Resolve Private Evidence Dir    ${output_dir}", diagnostics)
+        self.assertIn(
+            "Capture Page Screenshot    ${evidence_dir}/android_resolver_unexpected.png",
+            diagnostics,
+        )
+        self.assertIn(
+            "Create File    ${evidence_dir}/android_resolver_unexpected.xml",
+            diagnostics,
+        )
+        self.assertIn("[REDACTED]", diagnostics)
+        self.assertNotIn("${OUTPUT DIR}/private_local/", diagnostics)
 
     def test_python_evidence_writers_use_private_local_and_classification(self):
         scoped = (
