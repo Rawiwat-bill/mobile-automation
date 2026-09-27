@@ -119,6 +119,7 @@
     "snapshot_manifest": "configs/etb_wiki_snapshot.json",
     "immutable_snapshot_hash": "a9224f102d6787f318de344f55a5c1eca0411bc424340b871b45cee41dad216d",
     "snapshot_status": "VERIFIED_IMMUTABLE_BINDING",
+    "clean_checkout_policy": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT",
     "accepted_wiki_status": "READY_FOR_FIGMA_KNOWLEDGE_USE",
     "note": "The pilot binds the exact local Wiki pages used by design evidence through a deterministic SHA-256 snapshot manifest."
   },

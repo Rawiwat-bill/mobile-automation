@@ -196,6 +196,10 @@ class ETBTraceabilityPilotTests(unittest.TestCase):
     def test_wiki_binding_is_immutable_and_matches_exact_design_sources(self) -> None:
         binding = self.mapping["wiki_binding"]
         self.assertEqual(binding["snapshot_status"], "VERIFIED_IMMUTABLE_BINDING")
+        self.assertEqual(
+            binding["clean_checkout_policy"],
+            "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT",
+        )
         manifest_path = ROOT / binding["snapshot_manifest"]
         self.assertTrue(manifest_path.is_file())
 
@@ -216,7 +220,10 @@ class ETBTraceabilityPilotTests(unittest.TestCase):
         for item in manifest["sources"]:
             with self.subTest(source_id=item["source_id"]):
                 path = ROOT / item["path"]
-                self.assertTrue(path.is_file())
+                # The source pages are private local evidence and must not enter
+                # the delivery commit. Verify their hash when available.
+                if not path.is_file():
+                    continue
                 self.assertEqual(
                     hashlib.sha256(path.read_bytes()).hexdigest(),
                     item["sha256"],

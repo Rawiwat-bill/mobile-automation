@@ -36,6 +36,8 @@ cases:
     expected_branch: positive path; PDPA visibility conflicts between title and expected
       result
     product_selection_policy: REQUIRED
+    pdpa_policy: MUST_SKIP
+    expected_product_categories: []
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -67,6 +69,8 @@ cases:
     - pdpa
     expected_branch: positive path with PDPA Clause 6 displayed and accepted
     product_selection_policy: REQUIRED
+    pdpa_policy: REQUIRED
+    expected_product_categories: []
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -135,6 +139,8 @@ cases:
     expected_branch: existing Saving and e-Saving accounts; Product Selection account
       display
     product_selection_policy: REQUIRED
+    pdpa_policy: UNRESOLVED
+    expected_product_categories: [Saving, e-Saving]
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow

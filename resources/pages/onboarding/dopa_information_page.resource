@@ -5,6 +5,7 @@ Library     String
 Library     OperatingSystem
 Resource    ../../../locators/android/onboarding/dopa_information_locators.resource
 Resource    ../../keywords/android_wheel_picker.resource
+Resource    ../../diagnostics/etb_observability.resource
 
 
 *** Variables ***
@@ -224,12 +225,8 @@ Select DOPA Title Option
 
 Capture DOPA Title Dropdown Evidence
     ${ts}=    Get Time    epoch
-    ${shot}=    Set Variable    ${OUTPUT DIR}${/}dopa_title_dropdown_open_${ts}.png
-    ${xml_path}=    Set Variable    ${OUTPUT DIR}${/}dopa_title_dropdown_open_${ts}.xml
-    Run Keyword And Ignore Error    Capture Page Screenshot    ${shot}
-    ${src}=    Run Keyword And Ignore Error    Get Source
-    Run Keyword And Ignore Error    Create File    ${xml_path}    ${src}[1]    UTF-8
-    Log    [DOPA] Evidence: ${shot} | ${xml_path}    WARN
+    Record ETB Evidence Capture    ${OUTPUT DIR}    dopa_title_dropdown_open_${ts}
+    Log    [DOPA] Title-dropdown evidence requested through shared private adapter.    WARN
 
 
 Title Is Accepted Equivalent

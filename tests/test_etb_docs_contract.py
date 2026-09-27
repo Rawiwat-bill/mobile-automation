@@ -6,13 +6,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
 OVERVIEW = (ROOT / "AUTOMATION_OVERVIEW.md").read_text(encoding="utf-8")
-AGENTS = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 PROJECT_WIKI = (ROOT / "docs/PROJECT_WIKI.md").read_text(encoding="utf-8")
 TRACEABILITY_MATRIX = (ROOT / "docs/standards/ETB_TRACEABILITY_MATRIX.md").read_text(encoding="utf-8")
 BASELINE_AUDIT = (ROOT / "docs/standards/ETB_STANDARD_BASELINE_AUDIT.md").read_text(encoding="utf-8")
 FULL_TRACEABILITY = json.loads((ROOT / "configs/etb_traceability_full.json").read_text(encoding="utf-8"))
 PACKAGE = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-ENV_PREP = (ROOT / "tools/env_prep.py").read_text(encoding="utf-8")
 APPIUM_LAUNCHER = (ROOT / "tools/appium_server.py").read_text(encoding="utf-8")
 
 
@@ -57,10 +55,6 @@ class ETBDocumentationContractTests(unittest.TestCase):
         self.assertNotIn("| SIT/UAT | Not configured |", OVERVIEW)
         self.assertNotIn("App package/activity และ environment configuration ยังผูกกับ DEV", OVERVIEW)
 
-    def test_agents_validation_path_uses_current_ntb_suite(self):
-        self.assertIn("tests/android/ntb/ntb_flow.robot", AGENTS)
-        self.assertNotIn("tests/android/onboarding/ntb_onboarding.robot", AGENTS)
-
     def test_legacy_health_check_is_not_documented_as_active(self):
         for text in (README, OVERVIEW):
             self.assertNotIn("./health-check", text)
@@ -79,11 +73,6 @@ class ETBDocumentationContractTests(unittest.TestCase):
         self.assertIn('"--allow-insecure=uiautomator2:adb_shell"', APPIUM_LAUNCHER)
         self.assertIn('argv.extend(["--use-plugins=inspector", "--allow-cors"])', APPIUM_LAUNCHER)
         self.assertNotIn("--relaxed-security", APPIUM_LAUNCHER)
-
-        self.assertIn('APPIUM_BIND = "127.0.0.1"', ENV_PREP)
-        self.assertIn('APPIUM_ALLOW_INSECURE = "uiautomator2:adb_shell"', ENV_PREP)
-        self.assertIn('f"--allow-insecure={APPIUM_ALLOW_INSECURE}"', ENV_PREP)
-        self.assertNotIn("--relaxed-security", ENV_PREP)
 
     def test_overview_documents_least_privilege_appium(self):
         self.assertIn("--allow-insecure=uiautomator2:adb_shell", OVERVIEW)

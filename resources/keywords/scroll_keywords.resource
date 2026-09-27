@@ -1,6 +1,7 @@
 *** Settings ***
 Library    AppiumLibrary
 Library    Process
+Library    ../../libraries/adb_device.py
 
 
 *** Variables ***
@@ -123,9 +124,10 @@ Get Current Screenshot Scroll Stats With Adb
     RETURN    ${hash}    -1    -1    ${FALSE}
 
 Scroll Down Consent Terms With Big Fling
-    [Documentation]    State-based consent scroll: swipes until "I have read and understood" marker
-    ...                appears in page source, then stops. Falls back to hash-based stall detection.
-    ...                Validated: 20/20 runs, marker at swipe 4, zero false positives.
+    [Documentation]    State-based consent scroll using the visible acknowledgement marker when available.
+    ...                Visual progress is independently proven from canonical-ADB screenshot hashes.
+    ...                Two unchanged frames after prior visual progress prove the physical scroll boundary.
+    ...                Two unchanged frames without any prior progress fail closed as CONSENT_SCROLL_STALLED.
     [Arguments]    ${max_swipes}=10
     ${width}=    Get Window Width
     ${height}=    Get Window Height
@@ -134,8 +136,9 @@ Scroll Down Consent Terms With Big Fling
     ${end_y}=    Evaluate    int(${height} * ${CONSENT_BIG_FLING_END_Y_RATIO})
     Log    [CONSENT] width=${width} height=${height} start_x=${start_x} start_y=${start_y} end_y=${end_y} duration_ms=${CONSENT_BIG_FLING_DURATION_MS} max_swipes=${max_swipes}
     ${swipe_count}=    Set Variable    0
-    ${prev_hash}=    Set Variable    init
+    ${prev_hash}=    Get Android Screenshot Hash    ${DEVICE_UDID}
     ${stall_count}=    Set Variable    0
+    ${visual_progress_observed}=    Set Variable    ${FALSE}
     ${source}=    Get Source
     ${bottom_reached}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
     FOR    ${index}    IN RANGE    ${max_swipes}
@@ -147,17 +150,23 @@ Scroll Down Consent Terms With Big Fling
         Sleep    ${CONSENT_BIG_FLING_SHORT_PAUSE_S}s
         ${source}=    Get Source
         ${bottom_reached}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
-        Log    [CONSENT] fling_swipe=${swipe_count} bottom_reached=${bottom_reached}
-        IF    ${bottom_reached}
-            BREAK
-        END
-        ${cur_hash}=    Evaluate    hashlib.sha256($source.encode()).hexdigest()[:16]    modules=hashlib
+        ${cur_hash}=    Get Android Screenshot Hash    ${DEVICE_UDID}
         IF    '${cur_hash}' == '${prev_hash}'
             ${stall_count}=    Evaluate    ${stall_count} + 1
         ELSE
+            ${visual_progress_observed}=    Set Variable    ${TRUE}
             ${stall_count}=    Set Variable    0
         END
+        Log    [CONSENT] fling_swipe=${swipe_count} bottom_reached=${bottom_reached} visual_progress=${visual_progress_observed} visual_stall_count=${stall_count}
+        IF    ${bottom_reached}
+            BREAK
+        END
         IF    ${stall_count} >= 2
+            IF    ${visual_progress_observed}
+                ${bottom_reached}=    Set Variable    ${TRUE}
+                Log    [CONSENT] bottom_state=VISUAL_NO_CHANGE_AFTER_PROGRESS    INFO
+                BREAK
+            END
             Capture Page Screenshot
             Log Source
             Fail    CONSENT_SCROLL_STALLED
