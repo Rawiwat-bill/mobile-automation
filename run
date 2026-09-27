@@ -31,7 +31,7 @@ usage() {
     printf '%s\n' \
         'Usage:' \
         '  ./run etb [TC-ETB-xxx | --tag <tag> | --smoke | --dry-run]' \
-        '  ./run ntb [NTB_PROFILE=<profile>]' \
+        '  ./run ntb' \
         '  NTB_TESTDATA=<local-yaml> ./run ntb'
 }
 
@@ -48,23 +48,14 @@ case "${1:-}" in
             usage >&2
             exit 2
         fi
+        suite="$ROOT/tests/android/ntb/ntb_flow.robot"
         output="$ROOT/reports/run-ntb"
-        if [[ -n "${NTB_PROFILE:-}" ]]; then
-            suite="$ROOT/tests/android/onboarding/stage1_profile.robot"
-            robot_args=(--variable "PROFILE:${NTB_PROFILE}")
-            if [[ -n "${DEVICE_UDID:-}" ]]; then
-                robot_args+=(--variable "DEVICE_UDID:${DEVICE_UDID}")
-            fi
-            "$PYTHON_BIN" -m robot --outputdir "$output" "${robot_args[@]}" "$suite"
-        else
-            suite="$ROOT/tests/android/ntb/ntb_flow.robot"
-            if [[ ! -r "${NTB_TESTDATA:-}" ]]; then
-                printf 'NTB runtime data is local-only and is not committed.\n' >&2
-                printf 'Provide NTB_TESTDATA pointing to an approved local YAML profile file.\n' >&2
-                exit 3
-            fi
-            "$PYTHON_BIN" -m robot --outputdir "$output" -v NTB_TESTDATA:"$NTB_TESTDATA" "$suite"
+        if [[ ! -r "${NTB_TESTDATA:-}" ]]; then
+            printf 'NTB runtime data is local-only and is not committed.\n' >&2
+            printf 'Provide NTB_TESTDATA pointing to an approved local YAML profile file.\n' >&2
+            exit 3
         fi
+        "$PYTHON_BIN" -m robot --outputdir "$output" -v NTB_TESTDATA:"$NTB_TESTDATA" "$suite"
         ;;
     *)
         usage >&2

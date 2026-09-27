@@ -209,7 +209,7 @@ Select DOPA Title Option
     FOR    ${candidate}    IN    @{candidates}
         # accessibility_id (content-desc) targets the RN Pressable ROW (resource-id="group-list-press"),
         # not the inner text node. Row is non-clickable/enabled=false in the a11y tree -> adb tap fires onPress
-        # Requires Appium --relaxed-security for the configured ADB fallback.
+        # Requires Appium's bounded --allow-insecure=uiautomator2:adb_shell permission.
         ${present}=    Run Keyword And Return Status    Page Should Contain Element    accessibility_id=${candidate}    2s
         IF    ${present}
             ${rect}=    Get Element Rect    accessibility_id=${candidate}

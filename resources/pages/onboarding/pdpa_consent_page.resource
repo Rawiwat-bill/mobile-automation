@@ -8,7 +8,6 @@ Resource    ../../diagnostics/etb_observability.resource
 *** Variables ***
 ${PDPA_TIMEOUT}    10s
 ${PDPA_TRANSITION_TIMEOUT}    15s
-${PDPA_INVESTIGATION_DIR}    reports/investigation/after_pdpa
 ${PDPA_MAX_SWIPES}    12
 ${PDPA_SWIPE_COUNT}    0
 

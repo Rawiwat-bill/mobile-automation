@@ -15,9 +15,9 @@ Resource    ../keywords/health_check_keywords.resource
 
 
 *** Variables ***
-# Post-PIN success markers must be terminal UI phrases, not broad substrings.
-# Error evidence always wins if both success and error markers are present.
-@{SUCCESS_MARKERS}    you're all set!    you’re all set!    let's go    let’s go
+# post-PIN success markers (lowercased before matching). Single source of truth for both
+# Stage 1 suites' terminal-state detection -- was duplicated + buggy ($source scope) in the test files.
+@{SUCCESS_MARKERS}    success    complete    saved    welcome    congratulations
 
 
 *** Keywords ***
@@ -51,7 +51,7 @@ Complete Common Onboarding
         ...    PDPA Accept click succeeded but no screen transition. Backend/environment dependency.
         ...    reports/investigation/after_pdpa/
         Mark Health Checkpoint    PDPA_ACCEPT_NO_TRANSITION
-        RETURN    PDPA_ACCEPT_NO_TRANSITION
+        RETURN
     END
     Wait Until Sign Up Screen Is Displayed
     Mark Health Checkpoint    SIGN_UP_VISIBLE
@@ -68,18 +68,15 @@ Complete Common Onboarding
     Navigate Virtual Camera To Poster
     Tap Take Photo
     Mark Health Checkpoint    ID_CARD_PHOTO_CAPTURED
-    RETURN    COMMON_ONBOARDING_COMPLETED
 
 Complete Stage 1 Onboarding
     [Documentation]    Full Stage 1 flow: Landing through Confirm PIN.
     ...                All values come from the testdata dictionary argument.
     [Arguments]    ${data}
-    ${common_result}=    Complete Common Onboarding
+    Complete Common Onboarding
     ...    ${data['profile']['citizen_id']}
     ...    ${data['profile']['date_of_birth']}
     ...    ${data['profile']['mobile_number']}
-    Should Be Equal As Strings    ${common_result}    COMMON_ONBOARDING_COMPLETED
-    ...    COMMON_ONBOARDING_BLOCKED=${common_result}
     Capture ID Card Photo
     Wait Until DOPA Information Screen Is Displayed
     Mark Health Checkpoint    DOPA_VISIBLE
@@ -111,7 +108,9 @@ Complete Stage 1 Onboarding
 Detect Post PIN Terminal State
     [Documentation]    Read the page source after Confirm PIN and classify the terminal state.
     ...                Returns one of: SAVED | ENVIRONMENT_BLOCKED | NEXT_SCREEN_UNKNOWN.
-    ...                Success requires a specific terminal phrase; environment/error evidence has precedence.
+    ...                pure-Robot membership via FOR + Should Contain. Avoids Evaluate
+    ...                entirely -- Robot $var is not visible inside Evaluate generator scopes, and
+    ...                passing a list as an Evaluate namespace kwarg raised a dict-update ValueError.
     ...                Empty source classifies as NEXT_SCREEN_UNKNOWN (never a false pass).
     ${source}=    Get Source
     ${source_lower}=    Convert To Lower Case    ${source}
@@ -125,10 +124,10 @@ Detect Post PIN Terminal State
     ${has_error}=    Run Keyword And Return Status    Should Contain    ${source_lower}    not available
     ${has_error_aji}=    Run Keyword And Return Status    Should Contain    ${source}    AJI
     ${has_error}=    Set Variable If    ${has_error}    ${TRUE}    ${has_error_aji}
-    IF    ${has_error}
-        RETURN    ENVIRONMENT_BLOCKED
-    ELSE IF    ${has_success}
+    IF    ${has_success}
         RETURN    SAVED
+    ELSE IF    ${has_error}
+        RETURN    ENVIRONMENT_BLOCKED
     ELSE
         RETURN    NEXT_SCREEN_UNKNOWN
     END

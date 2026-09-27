@@ -1,7 +1,7 @@
 # BBL Remediation Checklist
 
 Updated: 2026-09-27 (ICT)
-Scope: /Users/RARW/BBL
+Scope: BBL ETB delivery workspace
 Policy: Restore trustworthy test baseline before final project cleanup. Owner-authorized selective cleanup may remove redundant artifacts for already-accepted cases while canonical evidence and all open-case evidence remain preserved.
 
 ## Block B — Test Trust
@@ -425,7 +425,7 @@ This section supersedes earlier temporary DEFER/HOLD runtime states below while 
 - [ ] Run the agreed canonical TC005 smoke first; if the runtime setup/smoke is sound, proceed to TC002 and then independent selected cases according to the existing ETB procedure.
 - [ ] Clear CIS ID before each testcase when required by the existing ETB procedure and require the clear/readiness step to pass before execution.
 - [ ] Inspect runtime screenshots/evidence stage-by-stage; do not classify only from Robot status.
-- [ ] Compare POST runtime evidence only against the local BBL Wiki at `/Users/RARW/BBL/local/obsidian-bbl`.
+- [ ] Compare POST runtime evidence only against the governed local BBL Wiki source configured for this workspace.
 - [ ] Review runtime results and POST-MMP evidence before changing any business expectation.
 - [ ] Cleanup remains HOLD until the test baseline and selected mobile acceptance are accepted.
 

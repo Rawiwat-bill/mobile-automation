@@ -13,14 +13,13 @@
 #   ROBOT_OPTIONS   extra flags passed to robot (e.g. "--variable APP:foo")
 #   OUTPUT_DIR      output root (default: reports/ci-latest)
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_DIR/reports/ci-latest}"
 ROBOT_OPTIONS="${ROBOT_OPTIONS:-}"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 HEALTH_CHECK_SUITE="$PROJECT_DIR/tests/android/onboarding/onboarding_health_check.robot"
 
@@ -32,12 +31,8 @@ echo ""
 # --- Dryrun mode -----------------------------------------------------------
 if [ "${1:-}" = "--dryrun" ]; then
     echo "[CI] Dryrun mode — validating syntax only."
-    mkdir -p "$OUTPUT_DIR"
-    if "$PYTHON_BIN" -m robot --dryrun --outputdir "$OUTPUT_DIR" "$HEALTH_CHECK_SUITE"; then
-        rc=0
-    else
-        rc=$?
-    fi
+    python3 -m robot --dryrun "$HEALTH_CHECK_SUITE"
+    rc=$?
     if [ $rc -eq 0 ]; then
         echo "[CI] Dryrun PASSED"
     else
@@ -54,17 +49,15 @@ echo "[CI] Suite: $HEALTH_CHECK_SUITE"
 echo ""
 
 # --- Run health check ------------------------------------------------------
-if "$PYTHON_BIN" -m robot \
-        --outputdir "$OUTPUT_DIR" \
-        --output health_check_output.xml \
-        --log health_check_log.html \
-        --report health_check_report.html \
-        $ROBOT_OPTIONS \
-        "$HEALTH_CHECK_SUITE"; then
-    rc=0
-else
-    rc=$?
-fi
+python3 -m robot \
+    --outputdir "$OUTPUT_DIR" \
+    --output health_check_output.xml \
+    --log health_check_log.html \
+    --report health_check_report.html \
+    $ROBOT_OPTIONS \
+    "$HEALTH_CHECK_SUITE"
+
+rc=$?
 
 # --- Report artifacts ------------------------------------------------------
 echo ""
