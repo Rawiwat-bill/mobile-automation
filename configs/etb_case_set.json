@@ -1,0 +1,25 @@
+{
+  "schema": "bbl-etb-case-set/v1",
+  "status": "CANONICAL_AUTOMATION_CASE_SET",
+  "suite_path": "tests/android/etb/etb_regression.robot",
+  "case_contract_path": "testdata/onboarding/etb_cases.yaml",
+  "canonical_case_ids": [
+    "TC-ETB-001",
+    "TC-ETB-002",
+    "TC-ETB-003",
+    "TC-ETB-004",
+    "TC-ETB-005",
+    "TC-ETB-006",
+    "TC-ETB-007",
+    "TC-ETB-008",
+    "TC-ETB-009",
+    "TC-ETB-010",
+    "TC-ETB-011",
+    "TC-ETB-012",
+    "TC-ETB-013"
+  ],
+  "execution_policies": {
+    "full_suite": "CONTINUE_INDEPENDENT_CASES",
+    "tc004": "INDEPENDENT_PREPARATION_AND_ASSERTIONS"
+  }
+}

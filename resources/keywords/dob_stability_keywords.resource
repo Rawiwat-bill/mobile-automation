@@ -1,6 +1,7 @@
 *** Settings ***
 Library    Collections
 Library    OperatingSystem
+Library    ../../libraries/failure_evidence.py
 
 *** Variables ***
 ${STABILITY_DIR}    ${OUTPUT_DIR}/stability
@@ -83,14 +84,10 @@ Record DOB Failure
 
 Capture DOB Failure Evidence
     [Arguments]    ${picker_kind}    ${target_value}
-    ${stamp}=    Evaluate    __import__('time').strftime('%Y%m%d_%H%M%S')
-    ${ev_dir}=    Set Variable    ${STABILITY_DIR}/dob
-    Create Directory    ${ev_dir}
-    ${screenshot}=    Set Variable    ${ev_dir}/dob_fail_${stamp}.png
-    ${source}=    Set Variable    ${ev_dir}/dob_fail_${stamp}.xml
-    Run Keyword And Ignore Error    Capture Page Screenshot    ${screenshot}
-    ${page_source}=    Run Keyword And Ignore Error    Get Source
-    Run Keyword And Ignore Error    Create File    ${source}    ${page_source[1]}    UTF-8
+    Run Keyword And Ignore Error
+    ...    Capture ETB Failure Evidence
+    ...    ${OUTPUT DIR}
+    ...    dob_${picker_kind}_${target_value}
 
 Generate DOB Stability Report
     ${now}=    Evaluate    __import__('time').time()

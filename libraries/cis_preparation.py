@@ -1,77 +1,175 @@
-"""Reusable, sanitized CIS preparation and cleanup component for ETB.
+"""Environment-aware, sanitized CIS preparation component for ETB.
 
-Each public operation performs exactly one CIS clear request. A 404 response
-from the approved endpoint is treated as an already-clear, successful state.
-Identity values are resolved from local test data and never returned or logged.
+DEV retains the existing clear lifecycle. SIT is external-preparation mode:
+this module never sends a CIS mutation there. Identity values are resolved from
+local test data and are never returned or logged.
 """
 
 from __future__ import annotations
 
-import json
-import hashlib
 import os
 import socket
 import ssl
+import subprocess
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import HTTPSHandler, Request, build_opener
-from urllib.parse import urlsplit
 
+from libraries.cis import evidence as cis_evidence
+from libraries.cis import mock_context as cis_mock
+from libraries.cis import readiness as cis_readiness
+from libraries.cis import state as cis_state
+from libraries.cis import transport as cis_transport
+from libraries.config_loader import load_profile as _load_profile
 from libraries.config_loader import load_yaml
 
 CIS_CLEAR_URL = os.environ.get("CIS_CLEAR_URL", "")
 _TIMEOUT_SECONDS = 30
+_PROFILE_NAMES = frozenset({"etb", "ntb_ilove", "ntb_somjai", "ilove", "somjai"})
+_SIT_MODE = cis_readiness.SIT_MODE
+_STATEFUL_CASE_NUMBERS = cis_readiness.STATEFUL_CASE_NUMBERS
+_CIS_READINESS_VERIFIED = cis_readiness.READINESS_VERIFIED
+_CIS_READINESS_EXTERNALLY_CONFIRMED = cis_readiness.READINESS_EXTERNALLY_CONFIRMED
+_CIS_READINESS_NOT_READY = cis_readiness.READINESS_NOT_READY
+_CIS_READINESS_UNKNOWN = cis_readiness.READINESS_UNKNOWN
+_MOCK_ENVIRONMENT = cis_mock.MOCK_ENVIRONMENT
+_MOCK_SOURCE = cis_mock.MOCK_SOURCE
+_MOCK_UDID = cis_mock.MOCK_UDID
+_MOCK_AVD = cis_mock.MOCK_AVD
+_MOCK_PACKAGE = cis_mock.MOCK_PACKAGE
+_MOCK_ACTIVITY = cis_mock.MOCK_ACTIVITY
+_MOCK_VERSION_NAME = cis_mock.MOCK_VERSION_NAME
+_MOCK_VERSION_CODE = cis_mock.MOCK_VERSION_CODE
+
+
+def _cis_mode() -> str:
+    if os.environ.get("CIS_MODE"):
+        return os.environ["CIS_MODE"].upper()
+    if os.environ.get("ETB_ENVIRONMENT", "DEV").upper() == "SIT":
+        return _SIT_MODE
+    return "AUTOMATION"
+
+
+def validate_mock_build_context() -> None:
+    """Reject mock CIS mode unless the approved local build is installed."""
+    cis_mock.validate_mock_build_context(
+        os.environ.get("ETB_ENVIRONMENT", ""),
+        os.environ.get("CIS_READINESS_SOURCE"),
+        os.environ.get("DEVICE_UDID"),
+        run_command=subprocess.run,
+    )
+
+
+def _mock_cis_result(phase: str) -> dict[str, Any]:
+    return cis_state.mock_result(phase)
+
+
+def _cis_readiness_status() -> str:
+    """Resolve non-mutating SIT readiness metadata into an explicit state."""
+    return cis_readiness.readiness_status(
+        os.environ.get("CIS_READINESS_SOURCE"),
+        os.environ.get("CIS_READY"),
+    )
+
+
+def _selected_case_testcase_id(testdata_path: str, case_key: str) -> str | None:
+    """Resolve a case key to its non-sensitive testcase ID without logging data."""
+    try:
+        case = _load_cases(testdata_path).get(case_key, {})
+    except (OSError, TypeError, ValueError):
+        return None
+    testcase_id = case.get("tc_id")
+    return testcase_id if isinstance(testcase_id, str) else None
 
 
 def _transport_category(exc: BaseException) -> str:
-    if isinstance(exc, socket.gaierror):
-        return "DNS_RESOLUTION_FAILURE"
-    if isinstance(exc, (socket.timeout, TimeoutError)):
-        return "TIMEOUT"
-    if isinstance(exc, ssl.SSLError):
-        return "TLS_FAILURE"
-    if isinstance(exc, ConnectionRefusedError):
-        return "TCP_CONNECTION_FAILURE"
-    if isinstance(exc, (ConnectionError, OSError)):
-        return "CONNECTION_FAILURE"
-    return "OTHER_TRANSPORT_FAILURE"
-
+    return cis_transport.transport_category(exc)
 
 def probe_cis_transport() -> dict[str, Any]:
     """Check DNS, TCP, and TLS reachability without changing CIS state."""
-    if not CIS_CLEAR_URL:
-        return {"ready": "NO", "transport_category": "CIS_CLEAR_URL_REQUIRED"}
-    endpoint = urlsplit(CIS_CLEAR_URL)
-    hostname = endpoint.hostname
-    port = endpoint.port or (443 if endpoint.scheme == "https" else 80)
-    if not hostname:
-        return {"ready": "NO", "transport_category": "OTHER_TRANSPORT_FAILURE"}
-    try:
-        addresses = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
-    except Exception as exc:
-        return {"ready": "NO", "transport_category": _transport_category(exc)}
-    if not addresses:
-        return {"ready": "NO", "transport_category": "DNS_RESOLUTION_FAILURE"}
-    try:
-        with socket.create_connection((hostname, port), timeout=_TIMEOUT_SECONDS) as connection:
-            if endpoint.scheme == "https":
-                ca_bundle = os.environ.get("PDPA_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
-                context = ssl.create_default_context(cafile=ca_bundle) if ca_bundle else ssl.create_default_context()
-                with context.wrap_socket(connection, server_hostname=hostname):
-                    pass
-    except Exception as exc:
-        return {"ready": "NO", "transport_category": _transport_category(exc)}
-    return {"ready": "YES", "transport_category": "READY"}
-def _write_result(output_dir: str, phase: str, result: dict[str, Any]) -> dict[str, Any]:
-    path = Path(output_dir) / f"cis_{phase.lower()}_result.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    ca_bundle = os.environ.get("PDPA_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
+    return cis_transport.probe(
+        CIS_CLEAR_URL,
+        _TIMEOUT_SECONDS,
+        ca_bundle=ca_bundle,
+        getaddrinfo=socket.getaddrinfo,
+        create_connection=socket.create_connection,
+        create_default_context=ssl.create_default_context,
+    )
+
+def _write_result(
+    output_dir: str,
+    phase: str,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    return cis_evidence.write_lifecycle_result(output_dir, phase, result)
+
+
+def _load_cases(testdata_path: str) -> dict[str, Any]:
+    data = load_yaml(testdata_path)
+    cases = data.get("cases")
+    if not isinstance(cases, dict):
+        raise ValueError("ETB case profiles must contain cases")
+    return cases
+
+
+def _load_contract_cases(testdata_path: str) -> dict[str, Any]:
+    """Load non-sensitive case boundaries alongside local-only profiles."""
+    configured = os.environ.get("CIS_CASE_CONTRACT")
+    candidate = Path(configured) if configured else Path(testdata_path).with_name("etb_cases.yaml")
+    if not candidate.is_file():
+        return {}
+    return _load_cases(str(candidate))
+
+
+def _case_number(tc_id: str) -> int | None:
+    return cis_readiness.case_number(tc_id)
+
+
+def _dependency_class(tc_id: str, case: dict[str, Any]) -> tuple[str, str]:
+    return cis_readiness.dependency_class(tc_id, case)
+
+
+def audit_cis_profiles(
+    testdata_path: str,
+    output_dir: str,
+    selected_case_id: str | None = None,
+) -> dict[str, Any]:
+    """Write sanitized CIS profile-dependency evidence from pure readiness policy."""
+    cases = _load_cases(testdata_path)
+    contract_cases = _load_contract_cases(testdata_path)
+    result, preparation, post_manifest = cis_readiness.build_profile_audit(
+        cases,
+        contract_cases,
+        selected_case_id,
+    )
+    cis_evidence.write_profile_audit(
+        output_dir,
+        result,
+        preparation,
+        post_manifest,
+    )
+    return result
+
+
+def verify_external_cis_readiness(
+    testdata_path: str,
+    output_dir: str,
+    selected_case_id: str | None = None,
+) -> dict[str, Any]:
+    """Evaluate SIT readiness metadata without reading or mutating CIS state."""
+    matrix = audit_cis_profiles(testdata_path, output_dir, selected_case_id)
+    result = cis_readiness.build_external_readiness(
+        matrix,
+        _cis_readiness_status(),
+        selected_case_id,
+    )
+    if result["full_runtime_gate"] != "OPEN":
+        cis_evidence.write_readiness_result(output_dir, result)
     return result
 
 
 def _resolve_citizen_id(testdata_path: str, case_key: str) -> str:
-    data = load_yaml(testdata_path)
+    data = _load_profile(testdata_path) if testdata_path in _PROFILE_NAMES else load_yaml(testdata_path)
     try:
         value = data["profile"]["citizen_id"] if "profile" in data else data["cases"][case_key]["profile"]["citizen_id"]
     except (KeyError, TypeError) as exc:
@@ -82,114 +180,76 @@ def _resolve_citizen_id(testdata_path: str, case_key: str) -> str:
 
 
 def _parse_response(raw_body: bytes) -> dict[str, Any]:
-    try:
-        value = json.loads(raw_body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return {}
-    return value if isinstance(value, dict) else {}
-
+    return cis_transport.parse_response(raw_body)
 
 def _response_metadata(http_status: int, headers: Any, raw_body: bytes) -> dict[str, Any]:
-    body = _parse_response(raw_body)
-    message_text = " ".join(str(body.get(key, "")) for key in ("errorType", "errorMessage", "message", "status")).lower()
-    if "not found" in message_text or "not exist" in message_text:
-        message_category = "PROFILE_NOT_FOUND"
-    elif body.get("errorType"):
-        message_category = "ERROR_TYPE_PRESENT"
-    elif 200 <= http_status < 300:
-        message_category = "SUCCESS_SIGNAL_PRESENT" if body else "EMPTY_SUCCESS_BODY"
-    else:
-        message_category = "HTTP_ERROR_BODY"
-    business_result_code = next(
-        (body.get(key) for key in ("resultCode", "code", "status", "httpStatus", "errorType") if body.get(key) is not None),
-        None,
-    )
-    return {
-        "http_status": http_status,
-        "content_type": headers.get("Content-Type") if headers else None,
-        "business_result_code": business_result_code,
-        "message_category": message_category,
-        "response_body_sha256": hashlib.sha256(raw_body).hexdigest() if raw_body else None,
-        "response_structure": {key: type(value).__name__ for key, value in sorted(body.items())},
-        "http_status_name": body.get("httpStatus"),
-        "error_type": body.get("errorType"),
-    }
-
+    return cis_transport.response_metadata(http_status, headers, raw_body)
 
 def _open_default():
     ca_bundle = os.environ.get("PDPA_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
-    context = ssl.create_default_context(cafile=ca_bundle) if ca_bundle else ssl.create_default_context()
-    return build_opener(HTTPSHandler(context=context)).open
-
+    return cis_transport.open_default(
+        ca_bundle=ca_bundle,
+        create_default_context=ssl.create_default_context,
+    )
 
 def _clear_once(citizen_id: str) -> dict[str, Any]:
-    if not CIS_CLEAR_URL:
-        return {
-            "http_status": None,
-            "content_type": None,
-            "business_result_code": None,
-            "message_category": "CONFIGURATION_FAILURE",
-            "response_body_sha256": None,
-            "response_structure": None,
-            "http_status_name": None,
-            "error_type": "CIS_CLEAR_URL_REQUIRED",
-        }
-    request = Request(
-        CIS_CLEAR_URL,
-        data=json.dumps({"idNum": citizen_id}).encode("utf-8"),
-        headers={"Accept": "application/json", "Content-Type": "application/json"},
-        method="DELETE",
+    return cis_transport.clear_once(
+        citizen_id,
+        url=CIS_CLEAR_URL,
+        timeout_seconds=_TIMEOUT_SECONDS,
+        opener=_open_default(),
+        classify_transport=_transport_category,
     )
-    try:
-        with _open_default()(request, timeout=_TIMEOUT_SECONDS) as response:
-            return _response_metadata(int(response.status), response.headers, response.read())
-    except HTTPError as exc:
-        return _response_metadata(int(exc.code), exc.headers, exc.read())
-    except (URLError, TimeoutError, OSError) as exc:
-        return {
-            "http_status": None,
-            "content_type": None,
-            "business_result_code": None,
-            "message_category": "TRANSPORT_FAILURE",
-            "response_body_sha256": None,
-            "response_structure": None,
-            "http_status_name": None,
-            "error_type": "TRANSPORT_ERROR",
-            "transport_category": _transport_category(exc.reason if isinstance(exc, URLError) and exc.reason else exc),
-        }
 
-
-def _clear_state(testdata_path: str, case_key: str, output_dir: str, phase: str) -> dict[str, Any]:
+def _clear_state(
+    testdata_path: str,
+    case_key: str,
+    output_dir: str,
+    phase: str,
+) -> dict[str, Any]:
     citizen_id = _resolve_citizen_id(testdata_path, case_key)
     response = _clear_once(citizen_id)
-    if response.get("http_status") == 200 and response.get("business_result_code") == "Success":
-        normalized = "CLEARED"
-    elif response.get("http_status") == 404 and response.get("message_category") == "PROFILE_NOT_FOUND":
-        normalized = "ALREADY_CLEARED"
-    else:
-        normalized = "FAILED"
-    result = {
-        "phase": phase,
-        "cis_clear": "PASS" if normalized in {"CLEARED", "ALREADY_CLEARED"} else "FAIL",
-        "cis_clear_result": normalized,
-        "cis_state_ready": "YES" if normalized in {"CLEARED", "ALREADY_CLEARED"} else "NO",
-        "http_status": response.get("http_status"),
-        "content_type": response.get("content_type"),
-        "business_result_code": response.get("business_result_code"),
-        "message_category": response.get("message_category"),
-        "error_type": response.get("error_type"),
-        "transport_category": response.get("transport_category"),
-        "operation_count": 1,
-        "profile_reusable": "YES" if normalized in {"CLEARED", "ALREADY_CLEARED"} else "UNKNOWN",
-    }
+    result = cis_state.normalize_clear_response(phase, response)
     return _write_result(output_dir, phase, result)
 
 
-def prepare_cis_state(testdata_path: str, case_key: str, output_dir: str) -> dict[str, Any]:
-    """Clear CIS once before a testcase starts."""
+def prepare_cis_state(
+    testdata_path: str,
+    case_key: str,
+    output_dir: str,
+) -> dict[str, Any]:
+    """Prepare CIS for one testcase without mutating SIT."""
+    if os.environ.get("ETB_ENVIRONMENT", "").upper() == _MOCK_ENVIRONMENT:
+        validate_mock_build_context()
+        return _write_result(output_dir, "PRE_TEST", _mock_cis_result("PRE_TEST"))
+    if _cis_mode() == _SIT_MODE:
+        readiness_status = _cis_readiness_status()
+        result = cis_state.external_preparation_result(
+            readiness_status,
+            sit_mode=_SIT_MODE,
+        )
+        # Do not persist owner-provided readiness metadata in a runtime report.
+        return (
+            result
+            if readiness_status == _CIS_READINESS_EXTERNALLY_CONFIRMED
+            else _write_result(output_dir, "PRE_TEST", result)
+        )
     return _clear_state(testdata_path, case_key, output_dir, "PRE_TEST")
 
 
-def cleanup_cis_state(testdata_path: str, case_key: str, output_dir: str) -> dict[str, Any]:
-    """Clear CIS once after testcase evidence/result capture."""
+def cleanup_cis_state(
+    testdata_path: str,
+    case_key: str,
+    output_dir: str,
+) -> dict[str, Any]:
+    """Clean up CIS in DEV; record external ownership in SIT."""
+    if os.environ.get("ETB_ENVIRONMENT", "").upper() == _MOCK_ENVIRONMENT:
+        validate_mock_build_context()
+        return _write_result(output_dir, "POST_TEST", _mock_cis_result("POST_TEST"))
+    if _cis_mode() == _SIT_MODE:
+        return _write_result(
+            output_dir,
+            "POST_TEST",
+            cis_state.external_cleanup_result(sit_mode=_SIT_MODE),
+        )
     return _clear_state(testdata_path, case_key, output_dir, "POST_TEST")

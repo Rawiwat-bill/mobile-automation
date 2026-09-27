@@ -3,13 +3,24 @@ from __future__ import annotations
 import tempfile
 import unittest
 import json
+import os
 import socket
 import ssl
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import URLError
 
-from libraries.cis_preparation import _clear_once, cleanup_cis_state, prepare_cis_state, probe_cis_transport
+from libraries.cis import readiness as cis_readiness
+from libraries.cis import state as cis_state
+from libraries.cis_preparation import (
+    _clear_once,
+    cleanup_cis_state,
+    prepare_cis_state,
+    probe_cis_transport,
+    validate_mock_build_context,
+    verify_external_cis_readiness,
+)
 
 
 class _Response:
@@ -26,6 +37,119 @@ class _Response:
         return b'{"status":"Success"}'
 
 
+class CisReadinessPolicyTests(unittest.TestCase):
+    def test_exact_external_confirmation_is_required(self) -> None:
+        self.assertEqual(
+            cis_readiness.readiness_status(
+                "EXTERNAL_TEAM_CONFIRMATION",
+                "EXTERNALLY_CONFIRMED",
+            ),
+            "EXTERNALLY_CONFIRMED",
+        )
+        self.assertEqual(
+            cis_readiness.readiness_status(
+                "EXTERNAL_TEAM_CONFIRMATION",
+                "YES",
+            ),
+            "NOT_READY",
+        )
+        self.assertEqual(
+            cis_readiness.readiness_status("*", "EXTERNALLY_CONFIRMED"),
+            "UNKNOWN",
+        )
+
+    def test_profile_audit_is_sanitized_and_classifies_policy(self) -> None:
+        cases = {
+            "etb_tc_001": {
+                "tc_id": "TC-ETB-001",
+                "profile": {"citizen_id": "SYNTHETIC_PRIVATE_A"},
+            },
+            "etb_tc_005": {
+                "tc_id": "TC-ETB-005",
+                "profile": {"citizen_id": "SYNTHETIC_PRIVATE_B"},
+            },
+        }
+        contracts = {
+            "etb_tc_001": {"terminal_state": "registration success"},
+            "etb_tc_005": {"terminal_state": "popup closed"},
+        }
+        audit, preparation, cleanup = cis_readiness.build_profile_audit(
+            cases,
+            contracts,
+        )
+        rendered = repr((audit, preparation, cleanup))
+        self.assertNotIn("SYNTHETIC_PRIVATE_A", rendered)
+        self.assertNotIn("SYNTHETIC_PRIVATE_B", rendered)
+        self.assertEqual(
+            audit["case_dependencies"]["TC-ETB-001"]["cis_dependency"],
+            "STATEFUL_PROFILE_REQUIRED",
+        )
+        self.assertEqual(
+            audit["case_dependencies"]["TC-ETB-005"]["cis_dependency"],
+            "NEGATIVE_FLOW_REUSABLE_PROFILE",
+        )
+        self.assertEqual(
+            audit["case_dependencies"]["TC-ETB-005"]["persistent_mutation"],
+            "NO",
+        )
+
+
+class CisStatePolicyTests(unittest.TestCase):
+    def test_clear_response_normalization_preserves_public_contract(self) -> None:
+        success = cis_state.normalize_clear_response(
+            "PRE_TEST",
+            {
+                "http_status": 200,
+                "business_result_code": "Success",
+                "message_category": "SUCCESS_SIGNAL_PRESENT",
+            },
+        )
+        absent = cis_state.normalize_clear_response(
+            "POST_TEST",
+            {
+                "http_status": 404,
+                "business_result_code": "NOT_FOUND",
+                "message_category": "PROFILE_NOT_FOUND",
+            },
+        )
+        failure = cis_state.normalize_clear_response(
+            "PRE_TEST",
+            {
+                "http_status": 500,
+                "business_result_code": "INTERNAL_SERVER_ERROR",
+                "message_category": "HTTP_ERROR_BODY",
+            },
+        )
+
+        self.assertEqual(success["cis_clear_result"], "CLEARED")
+        self.assertEqual(success["cis_state_ready"], "YES")
+        self.assertEqual(absent["cis_clear_result"], "ALREADY_CLEARED")
+        self.assertEqual(absent["cis_state_ready"], "YES")
+        self.assertEqual(failure["cis_clear_result"], "FAILED")
+        self.assertEqual(failure["cis_state_ready"], "NO")
+        self.assertEqual(success["operation_count"], 1)
+
+    def test_external_lifecycle_results_are_non_mutating(self) -> None:
+        preparation = cis_state.external_preparation_result(
+            "EXTERNALLY_CONFIRMED",
+            sit_mode="EXTERNAL_PREPARED",
+        )
+        cleanup = cis_state.external_cleanup_result(
+            sit_mode="EXTERNAL_PREPARED",
+        )
+        self.assertEqual(preparation["cis_clear"], "NOT_AUTHORIZED")
+        self.assertEqual(preparation["operation_count"], 0)
+        self.assertEqual(cleanup["cis_clear"], "NOT_ATTEMPTED")
+        self.assertEqual(cleanup["operation_count"], 0)
+        self.assertEqual(cleanup["post_cis_cleanup_owner"], "EXTERNAL_TEAM")
+
+    def test_mock_result_never_attempts_transport(self) -> None:
+        result = cis_state.mock_result("PRE_TEST")
+        self.assertEqual(result["cis_clear"], "NOT_APPLICABLE")
+        self.assertEqual(result["transport_category"], "NOT_ATTEMPTED")
+        self.assertEqual(result["operation_count"], 0)
+
+
 class CisPreparationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory(prefix="cis-preparation-")
@@ -37,6 +161,94 @@ class CisPreparationTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
+
+    def _mock_adb_run(self, command, **kwargs):
+        if command[-3:] == ["shell", "getprop", "ro.boot.qemu.avd_name"]:
+            stdout = "Pixel_10\n"
+        elif command[-3:] == ["pm", "path", "com.bangkokbank.blue.dev"]:
+            stdout = "package:/data/app/mock/base.apk\n"
+        elif command[-3:] == ["dumpsys", "package", "com.bangkokbank.blue.dev"]:
+            stdout = "versionName=1.13.0-alpha-93-146-Unshield versionCode=146\n"
+        elif "resolve-activity" in command:
+            stdout = "com.bangkokbank.blue.dev/com.bangkokbank.blue.MainActivity\n"
+        else:
+            raise AssertionError(command)
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    def test_cis_preparation_is_a_facade_over_internal_responsibilities(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[1] / "libraries/cis_preparation.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("cis_mock.validate_mock_build_context", source)
+        self.assertIn("cis_evidence.write_lifecycle_result", source)
+        self.assertIn("cis_evidence.write_profile_audit", source)
+        self.assertIn("cis_evidence.write_readiness_result", source)
+        self.assertNotIn("write_text(", source)
+        self.assertNotIn("re.search(", source)
+        self.assertLessEqual(len(source.splitlines()), 270)
+
+    def test_exact_mock_context_is_not_applicable_and_makes_no_http_call(self) -> None:
+        with patch.dict(os.environ, {
+            "ETB_ENVIRONMENT": "DEV_MOCK",
+            "CIS_READINESS_SOURCE": "MOCK_BUILD_NOT_REQUIRED",
+            "DEVICE_UDID": "emulator-5558",
+        }, clear=True), patch("libraries.cis_preparation.subprocess.run", side_effect=self._mock_adb_run), patch(
+            "libraries.cis_preparation._clear_once"
+        ) as clear:
+            result = prepare_cis_state("does-not-exist.yaml", "etb_tc_001", self.tempdir.name)
+        clear.assert_not_called()
+        self.assertEqual(result["cis_clear"], "NOT_APPLICABLE")
+        self.assertEqual(result["cis_state_ready"], "NOT_REQUIRED")
+        self.assertEqual(result["message_category"], "APPROVED_MOCK_BUILD")
+        self.assertEqual(result["http_status"], "NOT_ATTEMPTED")
+        self.assertEqual(result["transport_category"], "NOT_ATTEMPTED")
+        self.assertEqual(result["operation_count"], 0)
+
+    def test_mock_context_rejects_wrong_version(self) -> None:
+        def wrong_version(command, **kwargs):
+            result = self._mock_adb_run(command, **kwargs)
+            if command[-3:] == ["dumpsys", "package", "com.bangkokbank.blue.dev"]:
+                result.stdout = "versionName=canonical-dev versionCode=144\n"
+            return result
+
+        with patch.dict(os.environ, {
+            "ETB_ENVIRONMENT": "DEV_MOCK",
+            "CIS_READINESS_SOURCE": "MOCK_BUILD_NOT_REQUIRED",
+            "DEVICE_UDID": "emulator-5558",
+        }, clear=True), patch("libraries.cis_preparation.subprocess.run", side_effect=wrong_version):
+            with self.assertRaisesRegex(ValueError, "MOCK_CIS_INVALID_VERSION_NAME"):
+                validate_mock_build_context()
+
+    def test_mock_context_rejects_wrong_package(self) -> None:
+        def missing_package(command, **kwargs):
+            if command[-3:] == ["pm", "path", "com.bangkokbank.blue.dev"]:
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+            return self._mock_adb_run(command, **kwargs)
+
+        with patch.dict(os.environ, {
+            "ETB_ENVIRONMENT": "DEV_MOCK",
+            "CIS_READINESS_SOURCE": "MOCK_BUILD_NOT_REQUIRED",
+            "DEVICE_UDID": "emulator-5558",
+        }, clear=True), patch("libraries.cis_preparation.subprocess.run", side_effect=missing_package):
+            with self.assertRaisesRegex(ValueError, "MOCK_CIS_INVALID_PACKAGE"):
+                validate_mock_build_context()
+
+    def test_mock_context_rejects_wrong_device(self) -> None:
+        with patch.dict(os.environ, {
+            "ETB_ENVIRONMENT": "DEV_MOCK",
+            "CIS_READINESS_SOURCE": "MOCK_BUILD_NOT_REQUIRED",
+            "DEVICE_UDID": "emulator-5554",
+        }, clear=True):
+            with self.assertRaisesRegex(ValueError, "MOCK_CIS_INVALID_DEVICE"):
+                validate_mock_build_context()
+
+    def test_mock_context_rejects_missing_source(self) -> None:
+        with patch.dict(os.environ, {
+            "ETB_ENVIRONMENT": "DEV_MOCK",
+            "DEVICE_UDID": "emulator-5558",
+        }, clear=True):
+            with self.assertRaisesRegex(ValueError, "MOCK_CIS_SOURCE_REQUIRED"):
+                validate_mock_build_context()
 
     def test_200_normalizes_to_cleared_and_makes_one_call(self) -> None:
         response = {
@@ -55,6 +267,26 @@ class CisPreparationTests(unittest.TestCase):
         self.assertEqual(result["operation_count"], 1)
         self.assertNotIn("MASKED_ID", repr(result))
         self.assertEqual((Path(self.tempdir.name) / "cis_pre_test_result.json").is_file(), True)
+
+    def test_approved_profile_name_resolves_without_filesystem_path(self) -> None:
+        response = {
+            "http_status": 200,
+            "content_type": "application/json",
+            "business_result_code": "Success",
+            "message_category": "SUCCESS_SIGNAL_PRESENT",
+            "error_type": None,
+        }
+        synthetic_profile = {"profile": {"citizen_id": "SYNTHETIC_CIS_ID"}}
+        with patch(
+            "libraries.cis_preparation._load_profile", return_value=synthetic_profile
+        ) as load_profile, patch(
+            "libraries.cis_preparation._clear_once", return_value=response
+        ) as clear:
+            result = prepare_cis_state("etb", "", self.tempdir.name)
+        load_profile.assert_called_once_with("etb")
+        clear.assert_called_once_with("SYNTHETIC_CIS_ID")
+        self.assertEqual(result["cis_clear"], "PASS")
+        self.assertEqual(result["cis_clear_result"], "CLEARED")
 
     def test_proven_profile_not_found_404_normalizes_to_already_cleared(self) -> None:
         response = {
@@ -107,6 +339,18 @@ class CisPreparationTests(unittest.TestCase):
             result = probe_cis_transport()
         self.assertEqual(result, {"ready": "NO", "transport_category": "DNS_RESOLUTION_FAILURE"})
 
+    def test_http_transport_is_rejected_before_network_access(self) -> None:
+        with patch("libraries.cis_preparation.CIS_CLEAR_URL", "http://example.invalid/cis-clear"), patch(
+            "libraries.cis_preparation.socket.getaddrinfo"
+        ) as getaddrinfo, patch("libraries.cis_preparation.socket.create_connection") as connect:
+            result = probe_cis_transport()
+        self.assertEqual(
+            result,
+            {"ready": "NO", "transport_category": "CIS_CLEAR_URL_HTTPS_REQUIRED"},
+        )
+        getaddrinfo.assert_not_called()
+        connect.assert_not_called()
+
     def test_transport_probe_classifies_tls_failure(self) -> None:
         class FakeConnection:
             def __enter__(self):
@@ -139,6 +383,124 @@ class CisPreparationTests(unittest.TestCase):
         self.assertEqual(result["error_type"], "TRANSPORT_ERROR")
         self.assertEqual(result["transport_category"], "TIMEOUT")
         self.assertNotIn("MASKED_ID", repr(result))
+
+    def test_http_clear_request_is_rejected_before_citizen_id_is_sent(self) -> None:
+        opener = patch("libraries.cis_preparation._open_default").start()
+        self.addCleanup(patch.stopall)
+        with patch(
+            "libraries.cis_preparation.CIS_CLEAR_URL", "http://example.invalid/cis-clear"
+        ):
+            result = _clear_once("MASKED_ID")
+        self.assertEqual(result["message_category"], "CONFIGURATION_FAILURE")
+        self.assertEqual(result["error_type"], "CIS_CLEAR_URL_HTTPS_REQUIRED")
+        opener.return_value.assert_not_called()
+        self.assertNotIn("MASKED_ID", repr(result))
+
+    def test_external_readiness_scopes_a_valid_selected_case(self) -> None:
+        self.data.write_text(
+            "cases:\n"
+            "  etb_tc_001:\n"
+            "    tc_id: TC-ETB-001\n"
+            "    profile:\n"
+            "      citizen_id: MASKED_ID_001\n"
+            "  etb_tc_003:\n"
+            "    tc_id: TC-ETB-003\n"
+            "    profile:\n"
+            "      citizen_id: MASKED_ID_003\n",
+            encoding="utf-8",
+        )
+        result = verify_external_cis_readiness(
+            str(self.data), self.tempdir.name, "TC-ETB-003"
+        )
+        self.assertEqual(result["selected_testcase"], "TC-ETB-003")
+        self.assertEqual(len(result["profiles"]), 1)
+        self.assertEqual(result["all_required_cis_ready"], "NO")
+        self.assertEqual(result["full_runtime_gate"], "CLOSED")
+        self.assertEqual(result["gate_decision"], "SIT_CIS_EXTERNAL_CONFIRMATION_REQUIRED")
+
+    def test_external_readiness_rejects_missing_selected_case(self) -> None:
+        with self.assertRaisesRegex(ValueError, "not present"):
+            verify_external_cis_readiness(str(self.data), self.tempdir.name, "TC-ETB-003")
+
+    def _write_selected_cases(self) -> None:
+        self.data.write_text(
+            "cases:\n"
+            "  etb_tc_003:\n"
+            "    tc_id: TC-ETB-003\n"
+            "    profile:\n"
+            "      citizen_id: MASKED_ID_003\n"
+            "  etb_tc_004:\n"
+            "    tc_id: TC-ETB-004\n"
+            "    profile:\n"
+            "      citizen_id: MASKED_ID_004\n",
+            encoding="utf-8",
+        )
+
+    def test_exact_tc003_receipt_opens_only_tc003_gate(self) -> None:
+        self._write_selected_cases()
+        with patch.dict(os.environ, {
+            "CIS_READINESS_SOURCE": "EXTERNAL_TEAM_CONFIRMATION",
+            "CIS_READY": "EXTERNALLY_CONFIRMED",
+        }, clear=False):
+            result = verify_external_cis_readiness(str(self.data), self.tempdir.name, "TC-ETB-003")
+        self.assertEqual(result["cis_readiness_status"], "EXTERNALLY_CONFIRMED")
+        self.assertEqual(result["read_only_cis_verification_capability"], "EXTERNAL_TEAM_CONFIRMATION")
+        self.assertEqual(result["selected_testcase"], "TC-ETB-003")
+        self.assertEqual(result["all_required_cis_ready"], "YES")
+        self.assertEqual(result["full_runtime_gate"], "OPEN")
+        self.assertFalse((Path(self.tempdir.name) / "cis_readiness_result.json").exists())
+
+    def test_missing_receipt_remains_closed(self) -> None:
+        self._write_selected_cases()
+        with patch.dict(os.environ, {}, clear=True):
+            result = verify_external_cis_readiness(str(self.data), self.tempdir.name, "TC-ETB-003")
+        self.assertEqual(result["gate_decision"], "SIT_CIS_EXTERNAL_CONFIRMATION_REQUIRED")
+        self.assertEqual(result["all_required_cis_ready"], "NO")
+        self.assertEqual(result["full_runtime_gate"], "CLOSED")
+
+    def test_tc004_receipt_mismatch_remains_closed(self) -> None:
+        self._write_selected_cases()
+        with patch.dict(os.environ, {"CIS_READINESS_SOURCE": "EXTERNAL_TEAM_CONFIRMATION"}, clear=False):
+            result = verify_external_cis_readiness(str(self.data), self.tempdir.name, "TC-ETB-004")
+        self.assertEqual(result["gate_decision"], "SIT_CIS_EXTERNAL_CONFIRMATION_REQUIRED")
+        self.assertEqual(result["full_runtime_gate"], "CLOSED")
+
+    def test_wildcard_and_generic_receipts_remain_closed(self) -> None:
+        self._write_selected_cases()
+        for receipt in (("*", "YES"), ("EXTERNAL_TEAM_CONFIRMATION", "TRUE"), ("EXTERNAL_TEAM_CONFIRMATION", "TC-ETB-003,TC-ETB-004")):
+            with self.subTest(receipt=receipt), patch.dict(os.environ, {"CIS_READINESS_SOURCE": receipt[0], "CIS_READY": receipt[1]}, clear=False):
+                result = verify_external_cis_readiness(str(self.data), self.tempdir.name, "TC-ETB-003")
+            self.assertEqual(result["full_runtime_gate"], "CLOSED")
+
+    def test_sit_preparation_and_cleanup_make_zero_cis_mutation_calls(self) -> None:
+        self._write_selected_cases()
+        with patch.dict(
+            os.environ,
+            {"ETB_ENVIRONMENT": "SIT", "CIS_READINESS_SOURCE": "EXTERNAL_TEAM_CONFIRMATION", "CIS_READY": "EXTERNALLY_CONFIRMED"},
+            clear=False,
+        ), patch("libraries.cis_preparation._clear_once") as clear:
+            preparation = prepare_cis_state(str(self.data), "etb_tc_003", self.tempdir.name)
+            cleanup = cleanup_cis_state(str(self.data), "etb_tc_003", self.tempdir.name)
+        clear.assert_not_called()
+        self.assertEqual(preparation["cis_state_ready"], "EXTERNALLY_CONFIRMED")
+        self.assertEqual(preparation["operation_count"], 0)
+        self.assertEqual(cleanup["operation_count"], 0)
+        self.assertFalse((Path(self.tempdir.name) / "cis_pre_test_result.json").exists())
+
+    def test_dev_behavior_remains_mutating_and_unchanged(self) -> None:
+        response = {
+            "http_status": 200,
+            "business_result_code": "Success",
+            "message_category": "SUCCESS_SIGNAL_PRESENT",
+            "error_type": None,
+        }
+        with patch.dict(os.environ, {"ETB_ENVIRONMENT": "DEV"}, clear=False), patch(
+            "libraries.cis_preparation._clear_once", return_value=response
+        ) as clear:
+            result = prepare_cis_state(str(self.data), "etb_tc_001", self.tempdir.name)
+        clear.assert_called_once()
+        self.assertEqual(result["cis_clear"], "PASS")
+        self.assertEqual(result["cis_state_ready"], "YES")
 
     def test_request_matches_approved_contract(self) -> None:
         requests = []

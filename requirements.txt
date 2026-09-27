@@ -1,4 +1,5 @@
 robotframework>=7.0
 robotframework-appiumlibrary>=3.0
 pyyaml>=6.0
+Pillow>=10.0
 robotframework-requests>=0.9

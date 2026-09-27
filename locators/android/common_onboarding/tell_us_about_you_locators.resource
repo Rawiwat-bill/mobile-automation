@@ -1,5 +1,5 @@
 *** Variables ***
-${TELL_US_ABOUT_YOU_TITLE_TEXT}                     xpath=//android.widget.TextView[@text="Tell us about you"]
+${TELL_US_ABOUT_YOU_TITLE_TEXT}                     xpath=//android.widget.TextView[@text="Tell us about you" or @text="มาทำความรู้จักกันดีกว่า"]
 ${TELL_US_ABOUT_YOU_BUTTON_NEXT}                    xpath=//android.widget.Button[@content-desc="Next"]
 
 # CITIZEN ID

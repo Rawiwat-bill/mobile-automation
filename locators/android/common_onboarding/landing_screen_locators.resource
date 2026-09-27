@@ -7,3 +7,4 @@ ${LANDING_READY_BUTTON}                 xpath=//*[@resource-id="screenLanding_bu
 ${LANDING_TITLE_TEXT}                   xpath=//*[@resource-id="screenLanding_titleText0"]
 ${LANDING_DESCRIPTION_TEXT}             xpath=//*[@resource-id="screenLanding_descriptionText0"]
 ${LANDING_INDICATOR}                    xpath=//*[@resource-id="screenLanding_slickBarIndicator"]
+${LANDING_FULL_SCREEN_GUB_CTA}          xpath=//*[@resource-id="screenLanding_Full-Screen_Gub_CTAButton0"]

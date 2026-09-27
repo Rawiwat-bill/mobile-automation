@@ -13,7 +13,7 @@ from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import HTTPSHandler, HTTPCookieProcessor, Request, build_opener
 
 from libraries.config_loader import load_yaml as _load_yaml
@@ -127,7 +127,11 @@ def prepare_pdpa_state(
     base = base_url or os.environ.get("PDPA_BASE_URL", "")
     if not base:
         return _sanitized_result("FORM_STATE_INVALID", error="PDPA_BASE_URL_required")
-    form_url = urljoin(base.rstrip("/") + "/", form_path.lstrip("/"))
+    normalized_base = base.rstrip("/")
+    if urlsplit(normalized_base).path.rstrip("/") == form_path.rstrip("/"):
+        form_url = normalized_base
+    else:
+        form_url = urljoin(normalized_base + "/", form_path.lstrip("/"))
     transport = opener or _open_default()
 
     try:

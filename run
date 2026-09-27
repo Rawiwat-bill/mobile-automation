@@ -5,167 +5,38 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-$ROOT/.venv/bin/python}"
 ETB_SUITE="$ROOT/tests/android/etb/etb_regression.robot"
 ETB_OUTPUT="$ROOT/reports/run-etb"
+ETB_OUTPUT_BASE="$ETB_OUTPUT"
+REAL_DEVICE_PREFLIGHT="$ROOT/tools/real_device_preflight.py"
 
-# CIS DEV is signed by the corporate test CA. Keep this runner-specific trust
-# configuration separate from the interactive Hermes Python environment.
-if [[ -z "${PDPA_CA_BUNDLE:-}" && -r "$ROOT/local/certs/cis-ca-bundle.pem" ]]; then
-    export PDPA_CA_BUNDLE="$ROOT/local/certs/cis-ca-bundle.pem"
-fi
+# shellcheck source=tools/runner/android_environment.sh
+source "$ROOT/tools/runner/android_environment.sh"
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
     PYTHON_BIN="${PYTHON_FALLBACK:-python3}"
+fi
+
+# Governed/non-interactive launchers may not inherit the interactive Android
+# SDK PATH. Resolve only a pre-existing platform-tools directory; never install
+# tools or fall back to an implicit device target.
+if ! command -v adb >/dev/null 2>&1; then
+    for android_sdk_root in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$HOME/Library/Android/sdk"; do
+        if [[ -n "$android_sdk_root" && -x "$android_sdk_root/platform-tools/adb" ]]; then
+            export PATH="$android_sdk_root/platform-tools:$PATH"
+            break
+        fi
+    done
 fi
 
 usage() {
     printf '%s\n' \
         'Usage:' \
         '  ./run etb [TC-ETB-xxx | --tag <tag> | --smoke | --dry-run]' \
-        '  ./run ntb'
+        '  ./run ntb' \
+        '  NTB_TESTDATA=<local-yaml> ./run ntb'
 }
 
-run_etb() {
-    local selector_type="all"
-    local selector_value=""
-    local dry_run=false
-    local arg
-
-    shift
-    while (($#)); do
-        arg="$1"
-        case "$arg" in
-            --dry-run)
-                dry_run=true
-                ;;
-            --smoke)
-                if [[ "$selector_type" != "all" ]]; then
-                    printf 'ETB selection options are mutually exclusive.\n' >&2
-                    exit 2
-                fi
-                selector_type="tag"
-                selector_value="smoke"
-                ;;
-            --tag)
-                if [[ "$selector_type" != "all" || $# -lt 2 || -z "$2" || "$2" == -* ]]; then
-                    printf 'Expected exactly one tag after --tag; selection options are mutually exclusive.\n' >&2
-                    exit 2
-                fi
-                selector_type="tag"
-                selector_value="$2"
-                shift
-                ;;
-            TC-ETB-[0-9][0-9][0-9])
-                if [[ "$selector_type" != "all" ]]; then
-                    printf 'ETB selection options are mutually exclusive.\n' >&2
-                    exit 2
-                fi
-                selector_type="test"
-                selector_value="$arg"
-                ;;
-            TC-ETB-*|*)
-                printf 'Invalid ETB testcase or option: %s\n' "$arg" >&2
-                usage >&2
-                exit 2
-                ;;
-        esac
-        shift
-    done
-
-    local -a selection_args=()
-    case "$selector_type" in
-        test)
-            selection_args+=(--test "$selector_value *")
-            ;;
-        tag)
-            selection_args+=(--include "$selector_value")
-            ;;
-    esac
-
-    local preflight_dir
-    preflight_dir="$(mktemp -d "${TMPDIR:-/tmp}/etb-run-preflight.XXXXXX")"
-    trap 'rm -rf "$preflight_dir"' RETURN
-    if ((${#selection_args[@]})); then
-        if ! "$PYTHON_BIN" -m robot --dryrun --console none --outputdir "$preflight_dir" "${selection_args[@]}" "$ETB_SUITE" >/dev/null 2>&1; then
-            if [[ "$selector_type" == "test" ]]; then
-                printf 'ETB testcase not found in canonical suite: %s\n' "$selector_value" >&2
-            else
-                printf 'ETB tag selected no testcases in canonical suite: %s\n' "$selector_value" >&2
-            fi
-            exit 2
-        fi
-    else
-        if ! "$PYTHON_BIN" -m robot --dryrun --console none --outputdir "$preflight_dir" "$ETB_SUITE" >/dev/null 2>&1; then
-            printf 'Canonical ETB suite dry-run failed: %s\n' "$ETB_SUITE" >&2
-            exit 2
-        fi
-    fi
-
-    local selected_count
-    selected_count="$($PYTHON_BIN - "$preflight_dir/output.xml" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-
-root = ET.parse(sys.argv[1]).getroot()
-print(sum(1 for _ in root.iter("test")))
-PY
-)"
-    if [[ "$selector_type" == "test" && "$selected_count" != "1" ]]; then
-        printf 'ETB testcase not found in canonical suite: %s\n' "$selector_value" >&2
-        exit 2
-    fi
-    if [[ "$selector_type" == "tag" && "$selected_count" == "0" ]]; then
-        printf 'ETB tag selected no testcases in canonical suite: %s\n' "$selector_value" >&2
-        exit 2
-    fi
-    if [[ "$selector_type" == "all" && "$selected_count" != "13" ]]; then
-        printf 'Canonical ETB suite resolved %s testcases; expected 13.\n' "$selected_count" >&2
-        exit 2
-    fi
-
-    if [[ "$dry_run" == true ]]; then
-        printf 'ETB dry-run selection: %s testcase(s)\n' "$selected_count"
-        return 0
-    fi
-
-    if [[ ! -r "${ETB_CASE_PROFILES:-$ROOT/testdata/onboarding/etb_cases.local.yaml}" ]]; then
-        printf 'ETB runtime data is local-only and is not committed.\n' >&2
-        printf 'Provide ETB_CASE_PROFILES pointing to an approved local YAML profile file.\n' >&2
-        exit 3
-    fi
-
-    local cis_result
-    if ! cis_result="$($PYTHON_BIN - "${ETB_CASE_PROFILES:-$ROOT/testdata/onboarding/etb_cases.local.yaml}" "$preflight_dir" <<'PY'
-import json
-import sys
-
-from libraries.cis_preparation import prepare_cis_state
-
-result = prepare_cis_state(sys.argv[1], "etb_tc_001", sys.argv[2])
-print(json.dumps({
-    "cis_clear": result.get("cis_clear"),
-    "cis_clear_result": result.get("cis_clear_result"),
-    "cis_state_ready": result.get("cis_state_ready"),
-    "http_status": result.get("http_status"),
-    "message_category": result.get("message_category"),
-    "transport_category": result.get("transport_category"),
-    "operation_count": result.get("operation_count"),
-}, sort_keys=True))
-PY
-)"; then
-        printf 'CIS readiness gate could not execute under runner interpreter.\n' >&2
-        exit 3
-    fi
-    if [[ "$cis_result" != *'"cis_clear": "PASS"'* || "$cis_result" != *'"cis_state_ready": "YES"'* ]]; then
-        printf 'CIS readiness gate failed: %s\n' "$cis_result" >&2
-        exit 3
-    fi
-    printf 'CIS readiness gate passed: %s\n' "$cis_result"
-
-    if ((${#selection_args[@]})); then
-        "$PYTHON_BIN" -m robot --outputdir "$ETB_OUTPUT" "${selection_args[@]}" "$ETB_SUITE"
-    else
-        "$PYTHON_BIN" -m robot --outputdir "$ETB_OUTPUT" "$ETB_SUITE"
-    fi
-}
+# shellcheck source=tools/runner/etb_runner.sh
+source "$ROOT/tools/runner/etb_runner.sh"
 
 case "${1:-}" in
     etb)

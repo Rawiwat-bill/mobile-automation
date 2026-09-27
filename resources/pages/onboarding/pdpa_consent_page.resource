@@ -3,11 +3,11 @@ Library     AppiumLibrary
 Library     OperatingSystem
 Library     Process
 Resource    ../../../locators/android/onboarding/pdpa_consent_locators.resource
+Resource    ../../diagnostics/etb_observability.resource
 
 *** Variables ***
 ${PDPA_TIMEOUT}    10s
 ${PDPA_TRANSITION_TIMEOUT}    15s
-${PDPA_INVESTIGATION_DIR}    reports/investigation/after_pdpa
 ${PDPA_MAX_SWIPES}    12
 ${PDPA_SWIPE_COUNT}    0
 
@@ -45,21 +45,10 @@ Tap PDPA Consent Accept Button
     RETURN    ${FALSE}
 
 Capture PDPA Blocker Evidence
-    Create Directory    ${PDPA_INVESTIGATION_DIR}
-    Run Keyword And Ignore Error    Capture Page Screenshot    pdpa_blocker.png
-    ${source}=    Get Source
-    Create File    ${PDPA_INVESTIGATION_DIR}/pdpa_blocker.xml    ${source}    UTF-8
-    ${element_count}=    Evaluate    str($source).count('<node')
-    Create File    ${PDPA_INVESTIGATION_DIR}/pdpa_blocker_elements.txt
-    ...    Total XML nodes: ${element_count}
-    Log    [PDPA] Blocker evidence captured to ${PDPA_INVESTIGATION_DIR}/
+    Record ETB Evidence Capture    ${OUTPUT DIR}    pdpa_blocker
+    Log    [PDPA] Blocker evidence requested through shared private adapter.    WARN
 
 Capture After PDPA Evidence
     [Arguments]    ${timestamp}
-    Create Directory    ${PDPA_INVESTIGATION_DIR}
-    ${source}=    Get Source
-    Create File    ${PDPA_INVESTIGATION_DIR}/page_source_${timestamp}.xml    ${source}    UTF-8
-    ${element_count}=    Evaluate    str($source).count('<node')
-    Create File    ${PDPA_INVESTIGATION_DIR}/element_count_${timestamp}.txt
-    ...    Total XML nodes: ${element_count}
-    Log    [PDPA] After-PDPA evidence captured to ${PDPA_INVESTIGATION_DIR}/
+    Record ETB Evidence Capture    ${OUTPUT DIR}    after_pdpa_${timestamp}
+    Log    [PDPA] After-PDPA evidence requested through shared private adapter.
