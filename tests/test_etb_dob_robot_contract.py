@@ -47,7 +47,7 @@ Verify DOB Field Value
     Log    09/11/2000
     Fail    DOB_COMMITTED_VALUE_MISMATCH actual=09 Nov 2000
 '''
-  with tempfile.TemporaryDirectory(dir=ROOT/'.runtime',prefix='dob-private-test-') as tmp:
+  with tempfile.TemporaryDirectory(prefix='dob-private-test-') as tmp:
    p=Path(tmp); (p/'case.robot').write_text(text)
    rc=run(str(p/'case.robot'),outputdir=str(p),log='log.html',report='NONE',console='none',listener=RobotOutputSanitizer(),stdout=io.StringIO(),stderr=io.StringIO())
    self.assertEqual(rc,0)
@@ -97,7 +97,7 @@ Observe Profile DOB Boundary
     Fail    LEGACY_PATH_REACHED
 
 '''+body('Input Date Of Birth')
-  with tempfile.TemporaryDirectory(dir=ROOT/'.runtime',prefix='dob-dispatch-test-') as tmp:
+  with tempfile.TemporaryDirectory(prefix='dob-dispatch-test-') as tmp:
    p=Path(tmp); (p/'case.robot').write_text(text)
    rc=run(str(p/'case.robot'),outputdir=str(p),log='NONE',report='NONE',console='none',stdout=io.StringIO(),stderr=io.StringIO())
    self.assertEqual(rc,0)
