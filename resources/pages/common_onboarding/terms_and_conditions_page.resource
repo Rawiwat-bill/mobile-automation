@@ -1,6 +1,8 @@
 *** Settings ***
 Library     AppiumLibrary
 Library     OperatingSystem
+Library     String
+Library     ../../../libraries/adb_device.py
 Library     ../../../libraries/evidence_scope.py
 Resource    ../../contracts/flow_states.resource
 Resource    ../../diagnostics/etb_observability.resource
@@ -25,7 +27,22 @@ ${TERMS_BACK_Y_RATIO}                       0.091
 *** Keywords ***
 Wait Until Terms And Conditions Screen Is Displayed
     [Documentation]    Wait until the Terms and Conditions shell is displayed.
-    Wait Until Element Is Visible    ${TERMS_AND_CONDITIONS_WEBVIEW}    ${NCBD_LOADING_TIMEOUT}
+    ${appium_visible}=    Run Keyword And Return Status
+    ...    Wait Until Keyword Succeeds    2s    500ms
+    ...    Element Should Be Visible Now    ${TERMS_AND_CONDITIONS_WEBVIEW}
+    IF    ${appium_visible}
+        RETURN
+    END
+    ${source_visible}=    Run Keyword And Return Status
+    ...    Wait Until Keyword Succeeds    ${NCBD_LOADING_TIMEOUT}    500ms
+    ...    Terms Destination Should Be Visible From Active Source
+    Should Be True    ${source_visible}    TERMS_DESTINATION_NOT_PROVEN
+
+Terms Destination Should Be Visible From Active Source
+    ${source_status}    ${source}=    Run Keyword And Ignore Error    Get Source
+    Should Be Equal As Strings    ${source_status}    PASS    TERMS_SOURCE_READ_FAILED
+    ${terms_visible}=    Terms Destination Visible From Source    ${source}
+    Should Be True    ${terms_visible}    TERMS_DESTINATION_NOT_PROVEN
 
 Terms Content Should Be Ready
     [Documentation]    Prove hydrated agreement text independently from the bottom acknowledgement marker.
@@ -101,14 +118,15 @@ Accept Terms And Conditions
     END
 
     Capture Terms Transition Evidence
-    Fail    TERMS_TRANSITION_NOT_OBSERVED
+    Fail    TERMS_TRANSITION_NOT_OBSERVED observed=${transition}
 
 Wait For Terms Transition Marker
     [Documentation]    Return NEXT, AJI-001, or NOT_OBSERVED without treating Accept disappearance as success.
     ${observed}=    Run Keyword And Return Status
     ...    Wait Until Keyword Succeeds    10s    500ms    Terms Transition Marker Should Be Visible
     IF    not ${observed}
-        RETURN    ${FLOW_STATE_NOT_OBSERVED}
+        ${state}=    Classify Terms Non Transition State
+        RETURN    ${state}
     END
     ${source}=    Get Source
     ${aji}=    Run Keyword And Return Status    Should Contain    ${source}    ${FLOW_STATE_AJI_001}
@@ -116,6 +134,33 @@ Wait For Terms Transition Marker
         RETURN    ${FLOW_STATE_AJI_001}
     END
     RETURN    ${FLOW_STATE_NEXT}
+
+Classify Terms Non Transition State
+    [Documentation]    Classify the bounded post-Accept state without treating a still-visible Terms shell as success.
+    ${source_status}    ${source}=    Run Keyword And Ignore Error    Get Source
+    IF    '${source_status}' != 'PASS'
+        RETURN    SOURCE_UNAVAILABLE
+    END
+    ${terms_still_visible}=    Terms Destination Visible From Source    ${source}
+    IF    ${terms_still_visible}
+        RETURN    TERMS_STILL_VISIBLE
+    END
+    ${codes}=    Get Regexp Matches    ${source}    (?:RGI|GOD|AJI|RAI)-[0-9]{3}
+    ${count}=    Get Length    ${codes}
+    IF    ${count} > 0
+        RETURN    ${codes}[0]
+    END
+    ${dopa_visible}=    Run Keyword And Return Status
+    ...    Should Contain    ${source}    screenPersonalInformation_navBarTitleList
+    IF    ${dopa_visible}
+        RETURN    DOPA_VISIBLE
+    END
+    ${profile_visible}=    Run Keyword And Return Status
+    ...    Should Contain    ${source}    screenProfile_buttonNext
+    IF    ${profile_visible}
+        RETURN    PROFILE_VISIBLE
+    END
+    RETURN    UNKNOWN_DESTINATION
 
 Terms Transition Marker Should Be Visible
     ${next_visible}=    Run Keyword And Return Status

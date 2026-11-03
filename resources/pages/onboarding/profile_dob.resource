@@ -65,14 +65,21 @@ Input Date Of Birth
     [Arguments]    ${date_of_birth}
     ${dob_strategy}=    Get Variable Value    ${ETB_DOB_STRATEGY}    LEGACY
     IF    $dob_strategy == 'STABLE_V1'
-        ${dob_metrics}=    Select ETB DOB Exact
+        ${stable_status}    ${dob_metrics}=    Run Keyword And Ignore Error
+        ...    Select ETB DOB Exact
         ...    ${date_of_birth}    ${PROFILE_DOB_CONTAINER}
         ...    ${PROFILE_DOB_YEAR_PICKER}    ${PROFILE_DOB_MONTH_PICKER}
         ...    ${PROFILE_DOB_DAY_PICKER}    ${PROFILE_DOB_CONFIRM_BUTTON}
         ...    ${PROFILE_DOB_INPUT}    ${PROFILE_TITLE_TEXT}
-        Set Test Variable    ${ETB_DOB_LAST_METRICS}    ${dob_metrics}
-        RETURN
-    ELSE IF    $dob_strategy != 'LEGACY'
+        IF    '${stable_status}' == 'PASS'
+            Set Test Variable    ${ETB_DOB_LAST_METRICS}    ${dob_metrics}
+            RETURN
+        END
+        Should Be Equal As Strings    ${dob_metrics}    DOB_ELEMENT_MISSING_OR_AMBIGUOUS
+        Log    ETB_DOB_FALLBACK_TO_LEGACY=TRUE reason=DOB_ELEMENT_MISSING_OR_AMBIGUOUS    WARN
+        ${dob_strategy}=    Set Variable    LEGACY
+    END
+    IF    $dob_strategy != 'LEGACY'
         Fail    DOB_STRATEGY_UNSUPPORTED
     END
     Observe Profile DOB Boundary    P2
@@ -127,6 +134,36 @@ Input Date Of Birth
     Wait Until Profile Fields Are Blurred
     Verify DOB Field Value    ${day}    ${month_token}    ${year}
     Record DOB Success
+
+Input TC004 DOB With Deadline Recovery
+    [Arguments]    ${date_of_birth}
+    ${status}    ${error}=    Run Keyword And Ignore Error
+    ...    profile_dob.Input Date Of Birth    ${date_of_birth}
+    IF    '${status}' == 'PASS'
+        RETURN
+    END
+    IF    'DOB_DEADLINE_EXCEEDED' not in $error
+        Fail    ${error}
+    END
+    Log    TC004_DOB_DEADLINE_RECOVERY=RESUME_VISIBLE_PICKER_ONCE    WARN
+    ${metrics}=    Select ETB DOB Exact
+    ...    ${date_of_birth}    ${PROFILE_DOB_CONTAINER}
+    ...    ${PROFILE_DOB_YEAR_PICKER}    ${PROFILE_DOB_MONTH_PICKER}
+    ...    ${PROFILE_DOB_DAY_PICKER}    ${PROFILE_DOB_CONFIRM_BUTTON}
+    ...    ${PROFILE_DOB_INPUT}    ${PROFILE_TITLE_TEXT}    resume_tc004=${TRUE}
+    Set Test Variable    ${ETB_DOB_LAST_METRICS}    ${metrics}
+
+Capture TC004 DOB Picker Telemetry
+    [Arguments]    ${output_dir}
+    ${telemetry_path}=    Capture ETB DOB Picker Telemetry
+    ...    ${output_dir}
+    ...    ${PROFILE_DOB_YEAR_PICKER}
+    ...    ${PROFILE_DOB_MONTH_PICKER}
+    ...    ${PROFILE_DOB_DAY_PICKER}
+    ...    ${PROFILE_DOB_CONFIRM_BUTTON}
+    ...    ${PROFILE_DOB_INPUT}
+    ...    ${PROFILE_TITLE_TEXT}
+    RETURN    ${telemetry_path}
 
 Select DOB Picker Value
     [Arguments]    ${picker_locator}    ${target_value}    ${value_kind}    ${target_row_locator}=${EMPTY}

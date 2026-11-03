@@ -520,7 +520,7 @@ class CisPreparationTests(unittest.TestCase):
         self.assertEqual(request.full_url, "https://example.invalid/cis-clear")
         self.assertEqual(request.get_header("Accept"), "application/json")
         self.assertEqual(request.get_header("Content-type"), "application/json")
-        self.assertEqual(json.loads(request.data.decode("utf-8")), {"idNum": "MASKED_ID"})
+        self.assertEqual(json.loads(request.data.decode("utf-8")), {"idType": "CI", "idNum": "MASKED_ID"})
         self.assertEqual(timeout, 30)
         self.assertNotIn("MASKED_ID", repr(result))
 

@@ -8,6 +8,8 @@ from pathlib import Path
 from robot import run
 from robot.api import ExecutionResult, get_resource_model
 
+from libraries import adb_device
+
 ROOT = Path(__file__).resolve().parents[1]
 COMMON = ROOT / "resources" / "keywords" / "common_onboarding.resource"
 PAGE = ROOT / "resources" / "pages" / "common_onboarding" / "app_update_prompt_page.resource"
@@ -26,6 +28,25 @@ def keyword_body(name: str) -> str:
 
 
 class AppUpdatePromptContractTests(unittest.TestCase):
+    def test_adb_terms_fallback_requires_exact_marker_and_webview(self):
+        terms = (
+            '<hierarchy><node resource-id="security-error-container">'
+            '<node resource-id="webview" class="android.webkit.WebView"/>'
+            '<node class="android.widget.TextView" text="Terms and Conditions"/>'
+            '</node></hierarchy>'
+        )
+        self.assertTrue(adb_device._terms_destination_visible_from_source(terms))
+        self.assertFalse(
+            adb_device._terms_destination_visible_from_source(
+                '<hierarchy><node class="android.webkit.WebView"/></hierarchy>'
+            )
+        )
+        self.assertFalse(
+            adb_device._terms_destination_visible_from_source(
+                '<hierarchy><node text="Terms and Conditions"/></hierarchy>'
+            )
+        )
+
     def test_rgi109_is_scoped_to_maybe_later(self):
         locators = LOCATORS.read_text(encoding="utf-8")
         self.assertIn('contains(@text,"RGI-109")', locators)
@@ -56,6 +77,8 @@ class AppUpdatePromptContractTests(unittest.TestCase):
         self.assertLess(resolver, terms)
         self.assertIn("${TERMS_AND_CONDITIONS_WEBVIEW}", source)
         self.assertIn("${NCBD_LOADING_TIMEOUT}", source)
+        self.assertNotIn("IF    '${update_resolution}' != 'DESTINATION_READY'", source)
+        self.assertIn("Wait For Landing Destination    ${TERMS_AND_CONDITIONS_WEBVIEW}    ${NCBD_LOADING_TIMEOUT}", source)
 
     def test_race_is_event_driven_and_never_dismisses_unknown_popup(self):
         page = PAGE.read_text(encoding="utf-8")
@@ -90,6 +113,71 @@ class AppUpdatePromptContractTests(unittest.TestCase):
         resolve = page[start:end]
         self.assertLess(resolve.index("${APP_UPDATE_RGI107_CODE}"), resolve.index("RETURN    DESTINATION_READY"))
 
+    def test_adb_terms_evidence_resolves_as_destination(self):
+        body = keyword_body("App Update Destination Or Blocker Should Be Visible")
+        resolve = keyword_body("Resolve Optional App Update Or Destination")
+        with tempfile.TemporaryDirectory(prefix="etb-adb-terms-") as temp:
+            root = Path(temp)
+            resource = root / "adb_terms.resource"
+            resource.write_text(
+                """*** Settings ***
+Library    Collections
+
+*** Variables ***
+${APP_UPDATE_RGI109_CODE}    RGI109
+${APP_UPDATE_RGI107_CODE}    RGI107
+${APP_UPDATE_MAYBE_LATER_BUTTON}    MAYBE
+${APP_UPDATE_UPDATE_APP_BUTTON}    UPDATE
+${LANDING_OFFLINE_MESSAGE}    OFFLINE
+${LANDING_POPUP_GUB_CONTAINER}    POPUP
+${LANDING_FULL_SCREEN_GUB_CTA}    FULL
+${APP_UPDATE_PROMPT_PROBE_TIMEOUT}    0s
+${APP_UPDATE_PROMPT_ACTION_TIMEOUT}    0s
+${APP_UPDATE_PROMPT_TRANSITION_TIMEOUT}    0s
+${SOURCE_TERMS}    ${True}
+
+*** Keywords ***
+"""
+                + body
+                + resolve
+                + """Element Should Be Visible Now
+    [Arguments]    ${locator}
+    List Should Contain Value    ${VISIBLE}    ${locator}
+
+Terms Destination Visible From Active Source
+    RETURN    ${SOURCE_TERMS}
+
+Dismiss Optional App Update Prompt If Visible
+    Fail    OPTIONAL_DISMISS_NOT_EXPECTED
+""",
+                encoding="utf-8",
+            )
+            suite = root / "adb_terms.robot"
+            suite.write_text(
+                """*** Settings ***
+Resource    adb_terms.resource
+
+*** Test Cases ***
+ADB Terms Is Destination
+    ${visible}=    Create List
+    Set Test Variable    ${VISIBLE}    ${visible}
+    ${result}=    Resolve Optional App Update Or Destination    DEST    0s
+    Should Be Equal As Strings    ${result}    DESTINATION_READY
+""",
+                encoding="utf-8",
+            )
+            code = run(
+                str(suite),
+                outputdir=temp,
+                log="NONE",
+                report="NONE",
+                console="none",
+                stdout=io.StringIO(),
+                stderr=io.StringIO(),
+            )
+            result = ExecutionResult(str(root / "output.xml"))
+            self.assertEqual(code, 0, [test.message for test in result.suite.tests])
+
     def test_update_detector_distinguishes_visible_hidden_optional_and_ambiguous_states(self):
         body = keyword_body("App Update Destination Or Blocker Should Be Visible")
         resolve = keyword_body("Resolve Optional App Update Or Destination")
@@ -97,10 +185,10 @@ class AppUpdatePromptContractTests(unittest.TestCase):
             root = Path(temp)
             resource = root / "update_states.resource"
             resource.write_text(
-                """*** Settings ***\nLibrary    Collections\n\n*** Variables ***\n${APP_UPDATE_RGI109_CODE}    RGI109\n${APP_UPDATE_RGI107_CODE}    RGI107\n${APP_UPDATE_MAYBE_LATER_BUTTON}    MAYBE\n${APP_UPDATE_UPDATE_APP_BUTTON}    UPDATE\n${LANDING_OFFLINE_MESSAGE}    OFFLINE\n${LANDING_POPUP_GUB_CONTAINER}    POPUP\n${LANDING_FULL_SCREEN_GUB_CTA}    FULL\n${APP_UPDATE_PROMPT_PROBE_TIMEOUT}    0s\n${APP_UPDATE_PROMPT_ACTION_TIMEOUT}    0s\n${APP_UPDATE_PROMPT_TRANSITION_TIMEOUT}    0s\n\n*** Keywords ***\n"""
+                """*** Settings ***\nLibrary    Collections\n\n*** Variables ***\n${APP_UPDATE_RGI109_CODE}    RGI109\n${APP_UPDATE_RGI107_CODE}    RGI107\n${APP_UPDATE_MAYBE_LATER_BUTTON}    MAYBE\n${APP_UPDATE_UPDATE_APP_BUTTON}    UPDATE\n${LANDING_OFFLINE_MESSAGE}    OFFLINE\n${LANDING_POPUP_GUB_CONTAINER}    POPUP\n${LANDING_FULL_SCREEN_GUB_CTA}    FULL\n${APP_UPDATE_PROMPT_PROBE_TIMEOUT}    0s\n${APP_UPDATE_PROMPT_ACTION_TIMEOUT}    0s\n${APP_UPDATE_PROMPT_TRANSITION_TIMEOUT}    0s\n${SOURCE_TERMS}    ${False}\n\n*** Keywords ***\n"""
                 + body
                 + resolve
-                + """\nElement Should Be Visible Now\n    [Arguments]    ${locator}\n    List Should Contain Value    ${VISIBLE}    ${locator}\n\nDismiss Optional App Update Prompt If Visible\n    Fail    OPTIONAL_DISMISS_NOT_EXPECTED\n""",
+                + """\nElement Should Be Visible Now\n    [Arguments]    ${locator}\n    List Should Contain Value    ${VISIBLE}    ${locator}\n\nTerms Destination Visible From Active Source\n    RETURN    ${SOURCE_TERMS}\n\nDismiss Optional App Update Prompt If Visible\n    Fail    OPTIONAL_DISMISS_NOT_EXPECTED\n""",
                 encoding="utf-8",
             )
             suite = root / "update_states.robot"

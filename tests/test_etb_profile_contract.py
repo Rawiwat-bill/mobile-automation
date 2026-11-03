@@ -443,7 +443,7 @@ class ProfileConsumerContractTests(unittest.TestCase):
             (ROOT / "tests/android/etb/etb_regression.robot").read_text(encoding="utf-8"),
         )
 
-    def test_actual_cis_lifecycle_resolves_only_selected_synthetic_profile(self):
+    def test_error_validation_cis_lifecycle_preserves_prepared_profile(self):
         data = {"cases": {
             "etb_tc_001": {"profile": {"citizen_id": "MASKED_SYNTHETIC_001"}},
             "etb_tc_013": {"profile": {"citizen_id": "MASKED_SYNTHETIC_013"}},
@@ -475,13 +475,12 @@ class ProfileConsumerContractTests(unittest.TestCase):
                     fixture, "etb_tc_013", temporary
                 )
 
-            self.assertEqual(
-                clear.call_args_list,
-                [call("MASKED_SYNTHETIC_013"), call("MASKED_SYNTHETIC_013")],
-            )
-            self.assertEqual(loads, [fixture, fixture])
-            self.assertEqual(preparation["cis_clear"], "PASS")
-            self.assertEqual(cleanup["cis_clear"], "PASS")
+            clear.assert_not_called()
+            self.assertEqual(loads, [])
+            self.assertEqual(preparation["cis_clear"], "NOT_APPLICABLE")
+            self.assertEqual(cleanup["cis_clear"], "NOT_APPLICABLE")
+            self.assertEqual(preparation["operation_count"], 0)
+            self.assertEqual(cleanup["operation_count"], 0)
             load_profile.assert_not_called()
 
 

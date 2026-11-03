@@ -45,7 +45,7 @@ run_etb_target_preflight() {
 
 run_etb_network_preflight() {
     local network_result
-    if ! network_result="$("$PYTHON_BIN" "$ROOT/tools/etb_network_preflight.py"         --serial "$DEVICE_UDID"         --environment "$ETB_ENVIRONMENT"         --execution-target "$ANDROID_EXECUTION_TARGET")"; then
+    if ! network_result="$("$PYTHON_BIN" "$ROOT/tools/etb_network_preflight.py"         --serial "$DEVICE_UDID"         --environment "$ETB_ENVIRONMENT"         --execution-target "$ANDROID_EXECUTION_TARGET" --ensure-charles)"; then
         printf 'ETB_NETWORK_GATE=CLOSED; emulator proxy/network runtime is not ready.\n' >&2
         exit 3
     fi

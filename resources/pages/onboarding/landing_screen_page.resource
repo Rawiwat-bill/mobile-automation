@@ -1,4 +1,5 @@
 *** Settings ***
+Documentation    Legacy diagnostic/test-support landing page. Production shared onboarding uses pages/common_onboarding/landing_screen_page.resource.
 Library     AppiumLibrary
 Resource    ../../../locators/android/onboarding/landing_screen_locators.resource
 

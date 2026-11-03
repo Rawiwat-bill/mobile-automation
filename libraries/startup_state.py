@@ -42,6 +42,8 @@ def _snapshot() -> tuple[str, str]:
 
 
 def _classify(source: str, activity: str) -> str:
+    if "No internet connection" in source:
+        return "KNOWN_ERROR"
     if any(marker in source for marker in _LANDING_MARKERS):
         return "LANDING"
     if "permissioncontroller" in source.lower() or "GrantPermissionsActivity" in activity:
@@ -104,6 +106,12 @@ def wait_for_real_device_startup_state(timeout: float = 60.0, interval: float = 
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             adb_state = _diagnostic_adb_state()
+            if adb_state in _TERMINAL_STATES:
+                BuiltIn().log(
+                    f"STARTUP_STATE_ADB_FALLBACK={adb_state} appium_last_state={last_state}",
+                    level="WARN",
+                )
+                return adb_state
             raise AssertionError(
                 f"STARTUP_STATE_TIMEOUT last_state={last_state} timeout_seconds={timeout} adb_state={adb_state}"
             )

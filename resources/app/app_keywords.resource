@@ -36,11 +36,11 @@ Open Mobile Application
     ...    appActivity=${APP_ACTIVITY}
     ${execution_target}=    Get Environment Variable    ANDROID_EXECUTION_TARGET    DIAGNOSTIC_CONTROL
     IF    '${execution_target}' == 'REAL'
-        Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}
+        Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}    appium:newCommandTimeout=180
     ELSE
         ${etb_case_profiles}=    Get Environment Variable    ETB_CASE_PROFILES    ${EMPTY}
         IF    '${etb_case_profiles}' != ''
-            Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}    settings[enforceXPath1]=${True}
+            Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}    appium:newCommandTimeout=180    settings[enforceXPath1]=${True}
         ELSE
             Set To Dictionary    ${capabilities}    noReset=${no_reset}
         END
@@ -51,8 +51,13 @@ Open Mobile Application
     IF    '${execution_target}' != 'REAL'
         ${etb_case_profiles_before_session}=    Get Environment Variable    ETB_CASE_PROFILES    ${EMPTY}
         IF    '${etb_case_profiles_before_session}' != ''
-            ${etb_startup}=    Start And Observe Real Device    ${DEVICE_UDID}    ${APP_PACKAGE}    ${APP_ACTIVITY}    ${OUTPUT DIR}    timeout=90
-            Log    ADB_STARTUP_TERMINAL_STATE=${etb_startup['terminal_state']}    INFO
+            ${adb_startup_status}    ${etb_startup}=    Run Keyword And Ignore Error
+            ...    Start And Observe Real Device    ${DEVICE_UDID}    ${APP_PACKAGE}    ${APP_ACTIVITY}    ${OUTPUT DIR}    timeout=90
+            IF    '${adb_startup_status}' == 'PASS'
+                Log    ADB_STARTUP_TERMINAL_STATE=${etb_startup['terminal_state']}    INFO
+            ELSE
+                Log    ETB_PRE_APPIUM_STARTUP_OBSERVER_DEFERRED_TO_APPIUM=TRUE error=${etb_startup}    WARN
+            END
         END
     END
     Open Application    ${APPIUM_URL}    &{capabilities}

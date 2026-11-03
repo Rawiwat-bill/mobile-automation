@@ -193,6 +193,12 @@ class ETBLifecycleSafetyTests(unittest.TestCase):
         self.assertNotIn("Open Mobile Application", prepare)
         self.assertNotIn("Close Application", prepare)
         self.assertIn("Open Mobile Application", reset)
+        self.assertIn("Start And Observe Real Device", reset)
+        self.assertLess(
+            reset.index("Start And Observe Real Device"),
+            reset.index("Open Mobile Application"),
+            "real-device ADB startup observation must complete before Appium attach",
+        )
 
     def test_session_close_error_uses_safe_robot_expression_variables(self) -> None:
         lifecycle = _read("resources/keywords/etb/etb_session_lifecycle.resource")

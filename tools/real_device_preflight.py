@@ -31,14 +31,50 @@ ACTIVITY = "com.bangkokbank.blue.MainActivity"
 APPROVED_REAL_DEVICE_IDENTITIES = {
     ("HUAWEI", "MGA-LX3"),
     ("OPPO", "CPH2781"),
+    ("VIVO", "V2327"),
 }
 APPROVED_BUILD_IDENTITIES = {
     "DEV": {
-        "POST_MMP_1": ("1.14.0-debug-network-post-mmp-1-alpha-24-191-Unshield", "191"),
+        "POST_MMP_1": None,
         "MMP_LOT2_V2": ("1.13.9-145-Unshield-VPN-release-opo-fixed-tandc-not-display", "145"),
     },
     "SIT": ("1.12.11-16-Unshield", "16"),
 }
+
+CURRENT_DEV_APK = ROOT / "apps" / "android" / "app-dev.apk"
+
+
+def _current_dev_apk_identity() -> tuple[str, str]:
+    require_path = CURRENT_DEV_APK
+    if not require_path.is_file():
+        raise ValueError("TARGET_GUARD_CURRENT_DEV_APK_MISSING")
+    adb_path = Path(resolve_adb_executable()).resolve()
+    sdk = adb_path.parent.parent
+    candidates = sorted(
+        (p for p in sdk.glob("build-tools/*/aapt") if p.is_file() and os.access(p, os.X_OK)),
+        key=lambda p: p.parent.name,
+        reverse=True,
+    )
+    if not candidates:
+        raise ValueError("TARGET_GUARD_AAPT_NOT_FOUND")
+    result = subprocess.run(
+        [str(candidates[0]), "dump", "badging", str(require_path)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ValueError("TARGET_GUARD_CURRENT_DEV_APK_UNREADABLE")
+    line = next((item for item in result.stdout.splitlines() if item.startswith("package:")), "")
+    package_match = re.search(r"name='([^']+)'", line)
+    code_match = re.search(r"versionCode='([^']+)'", line)
+    name_match = re.search(r"versionName='([^']+)'", line)
+    if not package_match or not code_match or not name_match:
+        raise ValueError("TARGET_GUARD_CURRENT_DEV_APK_UNIDENTIFIED")
+    if package_match.group(1) != PACKAGE:
+        raise ValueError("TARGET_GUARD_CURRENT_DEV_APK_PACKAGE_MISMATCH")
+    return name_match.group(1), code_match.group(1)
 LANDING_MARKERS = ("screenLanding_skipButton", "screenLanding_buttonReady")
 TERMS_MARKERS = ("Terms and Conditions", "termsAndConditions")
 EXACT_ERROR_TEXT_MARKERS = (
@@ -236,7 +272,10 @@ def validate_target_identity(
         if environment == "DEV":
             assert isinstance(approved_identity, dict)
             approved_identity = approved_identity.get(product_release)
-            require(approved_identity is not None, "BUILD_RELEASE_MAPPING_MISSING")
+            if product_release == "POST_MMP_1":
+                approved_identity = _current_dev_apk_identity()
+            else:
+                require(approved_identity is not None, "BUILD_RELEASE_MAPPING_MISSING")
         if approved_identity is not None:
             require(
                 (version_name.group(1), version_code.group(1)) == approved_identity,

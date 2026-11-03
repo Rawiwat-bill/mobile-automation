@@ -38,6 +38,8 @@ def _sanitized_source(source):
 
 @not_keyword
 def _classify_startup_error_marker(source):
+    if "No internet connection" in source:
+        return "NO_INTERNET_CONNECTION"
     exact = _EXACT_ERROR_CODE_PATTERN.search(source)
     if exact:
         return exact.group(0)
@@ -59,7 +61,7 @@ def _foreground(serial):
 
 @not_keyword
 def _dump_source(serial):
-    remote_xml = "/sdcard/etb_startup.xml"
+    remote_xml = "/data/local/tmp/etb_startup.xml"
     try:
         _adb(serial, "shell", "rm", "-f", remote_xml, timeout=5, check=True)
     except (RuntimeError, subprocess.TimeoutExpired) as exc:
@@ -81,23 +83,35 @@ def _dump_source(serial):
     except RuntimeError as exc:
         raise AssertionError("ADB_UI_DUMP_FAILED") from exc
 
-    try:
-        source = _adb(
-            serial,
-            "shell",
-            "cat",
-            remote_xml,
-            timeout=12,
-            check=True,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise AssertionError("ADB_UI_DUMP_READ_TIMEOUT") from exc
-    except RuntimeError as exc:
-        raise AssertionError("ADB_UI_DUMP_READ_FAILED") from exc
+    read_attempts = 3 if str(serial).startswith("emulator-") else 1
+    source = ""
+    for read_attempt in range(read_attempts):
+        try:
+            source = _adb(
+                serial,
+                "shell",
+                "cat",
+                remote_xml,
+                timeout=12,
+                check=True,
+            )
+        except subprocess.TimeoutExpired as exc:
+            if read_attempt + 1 >= read_attempts:
+                raise AssertionError("ADB_UI_DUMP_READ_TIMEOUT") from exc
+            time.sleep(0.25 * (2 ** read_attempt))
+            continue
+        except RuntimeError as exc:
+            if read_attempt + 1 >= read_attempts:
+                raise AssertionError("ADB_UI_DUMP_READ_FAILED") from exc
+            time.sleep(0.25 * (2 ** read_attempt))
+            continue
 
-    if not source.strip():
-        raise AssertionError("ADB_UI_DUMP_EMPTY")
-    return source
+        if source.strip():
+            return source
+        if read_attempt + 1 < read_attempts:
+            time.sleep(0.25 * (2 ** read_attempt))
+
+    raise AssertionError("ADB_UI_DUMP_EMPTY")
 
 
 @not_keyword
@@ -148,7 +162,15 @@ def _recover_uiautomator_dump_after_transient(serial):
 
 
 @not_keyword
-def _dump_source_after_reset(serial, max_attempts=3, retry_delay=0.5):
+def _stop_stale_appium_uiautomator2(serial):
+    if not str(serial).startswith("emulator-"):
+        return
+    _adb(serial, "shell", "am", "force-stop", "io.appium.uiautomator2.server", timeout=5, check=False)
+    _adb(serial, "shell", "am", "force-stop", "io.appium.uiautomator2.server.test", timeout=5, check=False)
+
+
+@not_keyword
+def _dump_source_after_reset(serial, max_attempts=4, retry_delay=1.0):
     for attempt in range(max_attempts):
         try:
             return _dump_source(serial)
@@ -159,7 +181,7 @@ def _dump_source_after_reset(serial, max_attempts=3, retry_delay=0.5):
             ):
                 raise
             _recover_uiautomator_dump_after_transient(serial)
-            time.sleep(retry_delay)
+            time.sleep(retry_delay * (2 ** attempt))
     raise AssertionError("ADB_UI_DUMP_FAILED")
 
 
@@ -193,6 +215,8 @@ def _capture_final_screenshot(serial, destination):
 
 @not_keyword
 def _classify_startup_state(source, foreground):
+    if "No internet connection" in source:
+        return "KNOWN_ERROR"
     if "screenLanding_skipButton" in source or "screenLanding_buttonReady" in source:
         return "LANDING"
     if "permissioncontroller" in source.lower() or "GrantPermissionsActivity" in foreground:
@@ -275,6 +299,33 @@ def _terms_content_loaded_from_source(source):
     return False
 
 
+@not_keyword
+def _terms_destination_visible_from_source(source):
+    if not isinstance(source, str) or not source.strip():
+        return False
+    try:
+        root = ET.fromstring(source)
+    except ET.ParseError:
+        return False
+
+    visible_nodes = [
+        node
+        for node in root.iter()
+        if node.attrib.get("displayed", "true").lower() != "false"
+    ]
+    has_terms_marker = any(
+        node.attrib.get("resource-id") == "termsAndConditions"
+        or node.attrib.get("text") == "Terms and Conditions"
+        or node.attrib.get("content-desc") == "Terms and Conditions"
+        for node in visible_nodes
+    )
+    has_webview = any(
+        node.attrib.get("class", node.tag) == "android.webkit.WebView"
+        for node in visible_nodes
+    )
+    return has_terms_marker and has_webview
+
+
 @keyword("Terms Content Loaded From Source")
 def terms_content_loaded_from_source(source):
     """Return whether the Terms WebView exposes any hydrated agreement text."""
@@ -285,6 +336,18 @@ def terms_content_loaded_from_source(source):
 def terms_content_ready_via_adb(serial):
     """Return True only when the ADB hierarchy proves hydrated Terms content and Accept."""
     return _terms_content_ready_from_source(_dump_source(serial))
+
+
+@keyword("Terms Destination Visible From Source")
+def terms_destination_visible_from_source(source):
+    """Return True when an already-captured hierarchy proves the Terms destination shell is present."""
+    return _terms_destination_visible_from_source(source)
+
+
+@keyword("Terms Destination Visible Via Adb")
+def terms_destination_visible_via_adb(serial):
+    """Return True when the current ADB hierarchy proves the Terms destination shell is present."""
+    return _terms_destination_visible_from_source(_dump_source(serial))
 
 
 @keyword("Consent Acknowledgement Present Via Adb")
@@ -315,6 +378,7 @@ def reset_android_application_before_session(serial, package):
     if "success" not in clear_result.lower():
         raise AssertionError("ADB_PM_CLEAR_FAILED")
     if str(serial).startswith("emulator-"):
+        _stop_stale_appium_uiautomator2(serial)
         _dismiss_stale_emulator_aerr_after_reset(serial)
     return "PASS"
 

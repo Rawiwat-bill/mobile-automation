@@ -1,6 +1,7 @@
 *** Settings ***
 Documentation    Optional app-update prompt handling for the common onboarding path.
 Library          AppiumLibrary
+Library          ../../../libraries/adb_device.py
 Resource         ../../../locators/android/common_onboarding/app_update_prompt_locators.resource
 Resource         ../../../locators/android/common_onboarding/landing_screen_locators.resource
 Resource         ../../../resources/keywords/appium_expectations.resource
@@ -62,6 +63,11 @@ Resolve Optional App Update Or Destination
         RETURN    DESTINATION_READY
     END
 
+    ${source_terms_visible}=    Terms Destination Visible From Active Source
+    IF    ${source_terms_visible}
+        RETURN    DESTINATION_READY
+    END
+
     ${rgi109_visible}=    Run Keyword And Return Status
     ...    Element Should Be Visible Now    ${APP_UPDATE_RGI109_CODE}
     ${popup_visible}=    Run Keyword And Return Status
@@ -95,8 +101,21 @@ App Update Destination Or Blocker Should Be Visible
     ...    Element Should Be Visible Now    ${LANDING_POPUP_GUB_CONTAINER}
     ${full_screen_visible}=    Run Keyword And Return Status
     ...    Element Should Be Visible Now    ${LANDING_FULL_SCREEN_GUB_CTA}
+    ${source_terms_visible}=    Set Variable    ${FALSE}
+    IF    not ${destination_visible}
+        ${source_terms_visible}=    Terms Destination Visible From Active Source
+    END
     Should Be True
-    ...    ${destination_visible} or ${rgi109_visible} or ${rgi107_visible} or ${offline_visible} or ${popup_visible} or ${full_screen_visible}
+    ...    ${destination_visible} or ${source_terms_visible} or ${rgi109_visible} or ${rgi107_visible} or ${offline_visible} or ${popup_visible} or ${full_screen_visible}
+
+Terms Destination Visible From Active Source
+    [Documentation]    Reuse the active Appium hierarchy; never start a competing ADB UiAutomation session while Appium is attached.
+    ${source_status}    ${source}=    Run Keyword And Ignore Error    Get Source
+    IF    '${source_status}' != 'PASS'
+        RETURN    ${FALSE}
+    END
+    ${terms_visible}=    Terms Destination Visible From Source    ${source}
+    RETURN    ${terms_visible}
 
 App Update Prompt Should Be Gone
     ${rgi109_visible}=    Run Keyword And Return Status

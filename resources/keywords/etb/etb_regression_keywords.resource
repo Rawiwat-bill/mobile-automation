@@ -21,8 +21,18 @@ ${ETB_ISOLATED_VALIDATION}    ${EMPTY}
 ${LANDING_ACTION_RECT}    ${EMPTY}
 
 *** Keywords ***
+Assert Error Validation CIS State Preserved
+    [Arguments]    ${result}
+    Should Be Equal As Strings    ${result['cis_clear']}    NOT_APPLICABLE
+    Should Be Equal As Strings    ${result['cis_state_ready']}    PRESERVED_NOT_VERIFIED
+    Should Be Equal As Integers    ${result['operation_count']}    0
+
 Assert CIS Preparation Ready
     [Arguments]    ${preparation}
+    IF    $preparation.get('cis_mode') == 'ERROR_VALIDATION'
+        Assert Error Validation CIS State Preserved    ${preparation}
+        RETURN
+    END
     ${mode}=    Get Environment Variable    CIS_MODE    ${EMPTY}
     ${environment}=    Get Environment Variable    ETB_ENVIRONMENT    DEV
     IF    '${environment}' == 'DEV_MOCK'
@@ -36,6 +46,10 @@ Assert CIS Preparation Ready
 
 Assert CIS Cleanup Policy
     [Arguments]    ${cleanup}
+    IF    $cleanup.get('cis_mode') == 'ERROR_VALIDATION'
+        Assert Error Validation CIS State Preserved    ${cleanup}
+        RETURN
+    END
     ${mode}=    Get Environment Variable    CIS_MODE    ${EMPTY}
     ${environment}=    Get Environment Variable    ETB_ENVIRONMENT    DEV
     IF    '${environment}' == 'DEV_MOCK'
@@ -61,6 +75,11 @@ Run ETB Positive Case
     ${dob}=    Replace String    ${profile_case['profile']['date_of_birth']}    /    -
     ${has_confirm_policy}=    Run Keyword And Return Status    Dictionary Should Contain Key    ${case}    confirm_pin_policy
     ${confirm_pin_policy}=    Set Variable If    ${has_confirm_policy}    ${case['confirm_pin_policy']}    REQUIRED
+    ${product_selection_category_policy}=    Set Variable    ALL
+    IF    '${case_key}' in ['etb_tc_001', 'etb_tc_002', 'etb_tc_004']
+        ${product_selection_category_policy}=    Set Variable    ANY_SUPPORTED
+    END
+    ${product_selection_diagnostic}=    Set Variable If    '${case_key}' == 'etb_tc_004'    ${TRUE}    ${FALSE}
     TRY
         ${preparation}=    Prepare CIS State    ${ETB_CASE_PROFILES}    ${case_key}    ${OUTPUT DIR}
         Assert CIS Preparation Ready    ${preparation}
@@ -75,8 +94,13 @@ Run ETB Positive Case
         ...    ${case['pdpa_policy']}
         ...    ${case['expected_product_categories']}
         ...    confirm_pin_policy=${confirm_pin_policy}
+        ...    product_selection_diagnostic=${product_selection_diagnostic}
+        ...    product_selection_category_policy=${product_selection_category_policy}
         Record ETB Evidence Capture    ${OUTPUT DIR}    ${case_key}_result
         Should Be Equal As Strings    ${business_status}    PASS    ${business_error}
+        IF    '${business_status}' == 'PASS' and ${product_selection_diagnostic}
+            Should Be True    ${business_error}    TC004_PRODUCT_SELECTION_NOT_COMPLETED
+        END
         ${execution_mode}=    Get Environment Variable    ETB_EXECUTION_MODE    REGRESSION
         IF    ${assert_3c} and '${execution_mode}' != 'DISCOVERY'
             Assert TC001 Introduction And Control 3C
@@ -87,6 +111,8 @@ Run ETB Positive Case
     END
 
 Run ETB TC002 PDPA Case
+    ${cis_mode}=    Get Environment Variable    CIS_MODE    ${EMPTY}
+    ${external_prepared}=    Evaluate    $cis_mode == 'EXTERNAL_PREPARED'
     ${base_url}=    Get Environment Variable    PDPA_BASE_URL    ${EMPTY}
     Should Not Be Empty    ${base_url}    PDPA_BASE_URL must be supplied by the runtime environment.
     ${profiles}=    config_loader.Load YAML    ${ETB_CASE_PROFILES}
@@ -96,17 +122,22 @@ Run ETB TC002 PDPA Case
     ${dob}=    Replace String    ${profile['date_of_birth']}    /    -
     ${has_confirm_policy}=    Run Keyword And Return Status    Dictionary Should Contain Key    ${case}    confirm_pin_policy
     ${confirm_pin_policy}=    Set Variable If    ${has_confirm_policy}    ${case['confirm_pin_policy']}    REQUIRED
+    ${product_selection_category_policy}=    Set Variable    ANY_SUPPORTED
     TRY
         ${cis_preparation}=    Prepare CIS State    ${ETB_CASE_PROFILES}    etb_tc_002    ${OUTPUT DIR}
         Assert CIS Preparation Ready    ${cis_preparation}
-        ${clear_result}=    Prepare Pdpa State From Profile
-        ...    ${ETB_CASE_PROFILES}
-        ...    etb_tc_002
-        ...    CI
-        ...    base_url=${base_url}
-        Should Be Equal As Strings    ${clear_result['status']}    CLEAR_REQUEST_SUBMITTED
-        Should Be Equal As Integers    ${clear_result['post_count']}    1
-        Should Not Be True    ${clear_result['semantic_verifiable']}
+        IF    ${external_prepared}
+            Log    TC002_PDPA_PREPARATION=EXTERNALLY_PREPARED operation_count=0
+        ELSE
+            ${clear_result}=    Prepare Pdpa State From Profile
+            ...    ${ETB_CASE_PROFILES}
+            ...    etb_tc_002
+            ...    CI
+            ...    base_url=${base_url}
+            Should Be Equal As Strings    ${clear_result['status']}    CLEAR_REQUEST_SUBMITTED
+            Should Be Equal As Integers    ${clear_result['post_count']}    1
+            Should Not Be True    ${clear_result['semantic_verifiable']}
+        END
         ${business_status}    ${business_error}=    Run Keyword And Ignore Error    Complete ETB Onboarding
         ...    ${profile['citizen_id']}
         ...    ${dob}
@@ -118,26 +149,33 @@ Run ETB TC002 PDPA Case
         ...    ${case['pdpa_policy']}
         ...    ${case['expected_product_categories']}
         ...    confirm_pin_policy=${confirm_pin_policy}
+        ...    product_selection_category_policy=${product_selection_category_policy}
         Record ETB Evidence Capture    ${OUTPUT DIR}    etb_tc_002_result
         Should Be Equal As Strings    ${business_status}    PASS    ${business_error}
         Assert TC001 Introduction And Control 3C
     FINALLY
         ${cis_cleanup_status}    ${cis_cleanup}=    Run Keyword And Ignore Error    Cleanup CIS State    ${ETB_CASE_PROFILES}    etb_tc_002    ${OUTPUT DIR}
-        ${pdpa_cleanup_status}    ${pdpa_cleanup}=    Run Keyword And Ignore Error    Prepare Pdpa State From Profile
-        ...    ${ETB_CASE_PROFILES}
-        ...    etb_tc_002
-        ...    CI
-        ...    base_url=${base_url}
+        IF    ${external_prepared}
+            Log    TC002_PDPA_CLEANUP=EXTERNAL_OWNER operation_count=0
+        ELSE
+            ${pdpa_cleanup_status}    ${pdpa_cleanup}=    Run Keyword And Ignore Error    Prepare Pdpa State From Profile
+            ...    ${ETB_CASE_PROFILES}
+            ...    etb_tc_002
+            ...    CI
+            ...    base_url=${base_url}
+        END
         IF    '${cis_cleanup_status}' == 'PASS'
             Assert CIS Cleanup Policy    ${cis_cleanup}
         END
         IF    '${cis_cleanup_status}' != 'PASS'
             Fail    TC002_CLEANUP_FAILED CIS=${cis_cleanup_status}
         END
-        IF    '${pdpa_cleanup_status}' == 'PASS'
-            Log    CASE_SPECIFIC_PDPA_CLEANUP=ATTEMPTED status=${pdpa_cleanup['status']} semantic_verifiable=${pdpa_cleanup['semantic_verifiable']}    INFO
-        ELSE
-            Log    CASE_SPECIFIC_PDPA_CLEANUP=BEST_EFFORT_WARNING status=${pdpa_cleanup_status} detail=${pdpa_cleanup}    WARN
+        IF    not ${external_prepared}
+            IF    '${pdpa_cleanup_status}' == 'PASS'
+                Log    CASE_SPECIFIC_PDPA_CLEANUP=ATTEMPTED status=${pdpa_cleanup['status']} semantic_verifiable=${pdpa_cleanup['semantic_verifiable']}    INFO
+            ELSE
+                Log    CASE_SPECIFIC_PDPA_CLEANUP=BEST_EFFORT_WARNING status=${pdpa_cleanup_status} detail=${pdpa_cleanup}    WARN
+            END
         END
     END
 
@@ -201,6 +239,26 @@ Run ETB Expected RGI After Laser Code
             Input Laser Code    ${profile_case['profile']['laser_code']}
             Wait Until Element Is Visible    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}    ${NCBD_LOADING_TIMEOUT}
             Click Element    ${CHECK_DOPA_FILL_LASER_CODE_BUTTON_NEXT}
+            ${expected_rgi_locator}=    Set Variable
+            ...    xpath=//*[@content-desc="${case['expected_error_code']}" or contains(@text,"${case['expected_error_code']}")]
+            ${expected_rgi_visible}=    Run Keyword And Return Status
+            ...    Wait Until Element Is Visible    ${expected_rgi_locator}    10s
+            IF    not ${expected_rgi_visible}
+                ${post_laser_state}=    Classify Post Laser Failure State    ${case['expected_error_code']}
+                Record ETB Evidence Capture    ${OUTPUT DIR}    ${case_key}_unexpected_after_laser
+                IF    '${post_laser_state}' == 'DOPA_STILL_VISIBLE'
+                    Fail    EXPECTED_RGI_AFTER_LASER_NOT_TRIGGERED expected=${case['expected_error_code']} observed=${post_laser_state}
+                END
+                IF    '${post_laser_state}' == '${case['expected_error_code']}'
+                    Fail    EXPECTED_RGI_AFTER_LASER_LOCATOR_NOT_VISIBLE expected=${case['expected_error_code']} observed=${post_laser_state}
+                END
+                ${alternate_code}=    Run Keyword And Return Status
+                ...    Should Match Regexp    ${post_laser_state}    ^(?:RGI|GOD|AJI|RAI)-[0-9]{3}$
+                IF    ${alternate_code}
+                    Fail    EXPECTED_RGI_AFTER_LASER_WRONG_CODE expected=${case['expected_error_code']} observed=${post_laser_state}
+                END
+                Fail    EXPECTED_RGI_AFTER_LASER_DESTINATION_UNPROVEN expected=${case['expected_error_code']} observed=${post_laser_state}
+            END
             Record ETB Evidence Capture    ${OUTPUT DIR}    ${case_key}_result_before_action
             ${action_status}    ${action_error}=    Run Keyword And Ignore Error    Run Keyword    ${handler_keyword}    ${case['expected_error_code']}    ${NONE}    ${action_policy}
         ELSE
@@ -230,12 +288,12 @@ Reset ETB Regression Application
     Log    ${reset_result}
     ${execution_target}=    Get Environment Variable    ANDROID_EXECUTION_TARGET    DIAGNOSTIC_CONTROL
     IF    '${execution_target}' == 'REAL'
-        Open Mobile Application
-        Log    APPIUM_SESSION_BEFORE_APP_START=PASS UIAUTOMATOR2_READY_BEFORE_APP_START=PASS    INFO
         ${startup}=    Start And Observe Real Device    ${DEVICE_UDID}    ${APP_PACKAGE}    ${APP_ACTIVITY}    ${OUTPUT DIR}
         Log    ADB_APP_START=${startup['launch_result']}    INFO
         Log    ADB_STARTUP_TERMINAL_STATE=${startup['terminal_state']}    INFO
         Log    APP_PID_AFTER_APP_START=${startup['app_pid_before_attach']}    INFO
+        Open Mobile Application
+        Log    APPIUM_SESSION_AFTER_APP_START=PASS UIAUTOMATOR2_ATTACH_READY=PASS    INFO
         ${attach}=    Verify Real Device Attach    ${DEVICE_UDID}    ${APP_PACKAGE}    ${APP_ACTIVITY}    ${startup['app_pid_before_attach']}
         Log    ${attach}    INFO
     ELSE

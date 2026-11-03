@@ -28,6 +28,22 @@ Tap Profile Element Center
     ${tap_point}=    Create List    ${center_x}    ${center_y}
     Tap    ${tap_point}
 
+Select Passport Tab
+    Wait Until Element Is Visible    ${PROFILE_PASSPORT_TAB}    ${PROFILE_TIMEOUT}
+    Click Element    ${PROFILE_PASSPORT_TAB}
+    Wait Until Element Is Visible    ${PROFILE_PASSPORT_NUMBER_INPUT}    ${PROFILE_TIMEOUT}
+
+Select Citizen ID Tab
+    Wait Until Element Is Visible    ${PROFILE_CITIZEN_ID_TAB}    ${PROFILE_TIMEOUT}
+    Click Element    ${PROFILE_CITIZEN_ID_TAB}
+    Wait Until Element Is Visible    ${PROFILE_CITIZEN_ID_INPUT}    ${PROFILE_TIMEOUT}
+
+Input Passport Number
+    [Arguments]    ${passport_number}
+    Select Passport Tab
+    ${displayed}=    Input Text Field    ${PROFILE_PASSPORT_NUMBER_INPUT}    ${passport_number}
+    Verify Field Value    Passport    ${displayed}    ${passport_number}
+
 Tap Profile Blank Area
     [Arguments]    ${blank_y}
     ${tap_point}=    Create List    540    ${blank_y}
@@ -67,7 +83,6 @@ Input Citizen ID
     Tap Profile Element Center    ${PROFILE_CITIZEN_ID_CONTAINER}
     ${displayed}=    Input Text Field    ${PROFILE_CITIZEN_ID_INPUT}    ${citizen_id}
     Tap Profile Focus Dismissal Target    ${BLUR_AFTER_CITIZEN_Y}
-    Wait Until Profile Fields Are Blurred
     Verify Field Value    Citizen ID    ${displayed}    ${citizen_id}
 
 Read Current Profile Field Value
@@ -95,7 +110,15 @@ Read Current Profile Field Value
 Verify Current Profile Fields Before Next
     [Arguments]    ${citizen_id}    ${date_of_birth}    ${mobile_number}
     Wait Until Profile Screen Is Displayed
-    Wait Until Profile Fields Are Blurred
+    ${blur_status}    ${blur_error}=    Run Keyword And Ignore Error    Wait Until Profile Fields Are Blurred
+    IF    '${blur_status}' != 'PASS'
+        ${profile_still_visible}=    Run Keyword And Return Status    Element Should Be Visible Now    ${PROFILE_TITLE_TEXT}
+        IF    not ${profile_still_visible}
+            ${state}=    Classify Profile State Before Next
+            Fail    PROFILE_STATE_CHANGED_BEFORE_NEXT observed=${state}
+        END
+        Fail    ${blur_error}
+    END
     ${current_citizen_id}=    Read Current Profile Field Value
     ...    ${PROFILE_CITIZEN_ID_INPUT}    CITIZEN_ID
     Verify Field Value    Citizen ID    ${current_citizen_id}    ${citizen_id}
@@ -108,6 +131,36 @@ Verify Current Profile Fields Before Next
     ${expected_year}=    Set Variable    ${parts}[2]
     Verify DOB Field Value    ${expected_day}    ${expected_month}    ${expected_year}
     Log    [PROFILE] current visible CID/mobile/DOB verified immediately before Next with masked values.
+
+Classify Profile State Before Next
+    [Documentation]    Classify a profile disappearance before the explicit Next action without accepting it as success.
+    ${source_status}    ${source}=    Run Keyword And Ignore Error    Get Source
+    IF    '${source_status}' != 'PASS'
+        RETURN    SOURCE_UNAVAILABLE
+    END
+    ${codes}=    Get Regexp Matches    ${source}    (?:RGI|GOD|AJI|RAI)-[0-9]{3}
+    ${count}=    Get Length    ${codes}
+    IF    ${count} > 0
+        RETURN    ${codes}[0]
+    END
+    ${dopa}=    Run Keyword And Return Status    Should Contain    ${source}    screenPersonalInformation_navBarTitleList
+    IF    ${dopa}
+        RETURN    DOPA_VISIBLE
+    END
+    ${terms}=    Run Keyword And Return Status    Should Contain    ${source}    termsAndConditions
+    IF    ${terms}
+        RETURN    TERMS_VISIBLE
+    END
+    ${landing}=    Run Keyword And Return Status    Should Contain    ${source}    screenLanding_
+    IF    ${landing}
+        RETURN    LANDING_VISIBLE
+    END
+    ${security}=    Run Keyword And Return Status    Should Contain    ${source}    security-error-container
+    ${webview}=    Run Keyword And Return Status    Should Contain    ${source}    android.webkit.WebView
+    IF    ${security} and ${webview}
+        RETURN    SECURITY_WEBVIEW
+    END
+    RETURN    UNKNOWN_DESTINATION
 
 # ─── TextInput Engine ────────────────────────────────────────────────────
 

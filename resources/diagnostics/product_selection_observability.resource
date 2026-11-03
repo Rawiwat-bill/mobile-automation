@@ -9,6 +9,15 @@ Record Product Selection Visible
     [Arguments]    ${output_dir}
     Run Keyword And Ignore Error    Record Visual Timeline Event    PS0_PRODUCT_SELECTION_VISIBLE    ${FLOW_STATE_PRODUCT_SELECTION}    ${output_dir}/visual_timeline
 
+Record Product Selection List Not Rendered
+    [Arguments]    ${output_dir}
+    Run Keyword And Ignore Error
+    ...    Record Visual Timeline Event
+    ...    PS1_PRODUCT_LIST_NOT_RENDERED
+    ...    ${FLOW_STATE_PRODUCT_SELECTION}
+    ...    ${output_dir}/visual_timeline
+    ...    action=PRODUCT_LIST_NOT_RENDERED
+
 Record Product Selection Rows Available
     [Arguments]    ${output_dir}
     Run Keyword And Ignore Error    Record Visual Timeline Event    PS1_ROWS_AVAILABLE    ${FLOW_STATE_PRODUCT_SELECTION}    ${output_dir}/visual_timeline    screenshot=${False}

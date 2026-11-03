@@ -58,7 +58,7 @@ Confirm Then Product Selection Remains Supported
 
 Required Immediate Success Still Means Selection Was Skipped
     Configure    ${FLOW_STATE_COMPLETION_SUCCESS}    ${FLOW_STATE_REGISTRATION_SUCCESS}
-    Run Keyword And Expect Error    PRODUCT_SELECTION_REQUIRED_BUT_SKIPPED    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    confirm_pin_policy=OPTIONAL
+    Run Keyword And Expect Error    PRODUCT_SELECTION_REQUIRED_BUT_SKIPPED*    Complete ETB Onboarding    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    OMITTED    confirm_pin_policy=OPTIONAL
     Should Be Equal As Integers    ${PRODUCT_SELECTION_CALLS}    0
 
 Optional Immediate Success Is Allowed
@@ -164,7 +164,7 @@ ETB Post PIN Destination Should Be Displayed
     RETURN    ${DESTINATION}
 
 Complete Product Selection
-    [Arguments]    ${expected_product_categories}=${NONE}
+    [Arguments]    ${expected_product_categories}=${NONE}    ${category_policy}=ALL
     ${calls}=    Evaluate    $PRODUCT_SELECTION_CALLS + 1
     Set Test Variable    ${PRODUCT_SELECTION_CALLS}    ${calls}
 
@@ -179,6 +179,10 @@ Assert ETB Release Pre-SET
 
 Record ETB Readiness Blocker
     [Arguments]    ${output_dir}    ${blocker_code}    ${dopa_reached}
+    No Operation
+
+Record ETB Evidence Capture
+    [Arguments]    @{args}
     No Operation
 
 Record ETB Registration Success Visible
@@ -256,6 +260,22 @@ class ETBProductSelectionStateTests(unittest.TestCase):
                 ):
                     validate_product_categories(actual, ["Saving", "e-Saving"])
 
+    def test_supported_category_policy_accepts_either_account_type(self):
+        for actual in (["Saving Account"], ["e-Savings Account"], ["Saving Account", "e-Savings Account"]):
+            with self.subTest(actual=actual):
+                self.assertTrue(
+                    validate_product_categories(
+                        actual,
+                        ["Saving", "e-Saving"],
+                        "ANY_SUPPORTED",
+                    )
+                )
+        with self.assertRaisesRegex(
+            AssertionError,
+            "PRODUCT_SELECTION_SUPPORTED_CATEGORIES_MISSING=Saving,e-Saving",
+        ):
+            validate_product_categories(["Credit Card"], [], "ANY_SUPPORTED")
+
     def test_production_flow_forwards_expected_categories(self):
         text = ETB.read_text(encoding="utf-8")
         self.assertIn("${expected_product_categories}=${NONE}", text)
@@ -271,6 +291,14 @@ class ETBProductSelectionStateTests(unittest.TestCase):
         self.assertIn("Validate Product Categories", page)
         self.assertIn("${PRODUCT_SELECTION_PRODUCT_NAMES}", page)
         self.assertIn("screenProductSelection_flatListCardsTextProductName_", locators)
+        self.assertIn(
+            '${PRODUCT_SELECTION_RETRIEVAL_ERROR}     xpath=//*[@resource-id="screenProductSelection_textTryAgain"]',
+            locators,
+        )
+        self.assertIn(
+            '${PRODUCT_SELECTION_REFRESH}             xpath=//*[@resource-id="screenProductSelection_buttonRefresh"]',
+            locators,
+        )
 
 
 if __name__ == "__main__":
