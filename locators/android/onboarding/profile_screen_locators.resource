@@ -1,7 +1,10 @@
 *** Variables ***
 ${PROFILE_TITLE_TEXT}              xpath=//*[@text="Tell us about you"]
+${PROFILE_CITIZEN_ID_TAB}          xpath=//*[@resource-id="screenProfile_tabCitizenId"]
+${PROFILE_PASSPORT_TAB}            xpath=//*[@resource-id="screenProfile_tabPassport"]
 ${PROFILE_CITIZEN_ID_CONTAINER}    xpath=//*[@resource-id="cid-container"]
 ${PROFILE_CITIZEN_ID_INPUT}        xpath=//android.widget.EditText[@resource-id="cid"]
+${PROFILE_PASSPORT_NUMBER_INPUT}   xpath=//android.widget.EditText[@resource-id="screenProfile_textInputMobileNumber" and @hint="Enter passport number"]
 ${PROFILE_DOB_CONTAINER}           xpath=//*[@resource-id="screenProfile_textInputDob-container"]
 ${PROFILE_DOB_INPUT}               xpath=//*[@resource-id="screenProfile_textInputDob"]
 ${PROFILE_DOB_INPUT_FALLBACK}      xpath=//*[@content-desc="profile_screen.dob"]

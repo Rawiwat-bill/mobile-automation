@@ -1,0 +1,422 @@
+{
+  "schema": "bbl-etb-traceability/v2",
+  "status": "FULL_STATIC_SCOPE_WITH_RUNTIME_BINDINGS",
+  "generated_at": "2026-09-27",
+  "scope": [
+    "TC-ETB-001",
+    "TC-ETB-002",
+    "TC-ETB-003",
+    "TC-ETB-004",
+    "TC-ETB-005",
+    "TC-ETB-006",
+    "TC-ETB-007",
+    "TC-ETB-008",
+    "TC-ETB-009",
+    "TC-ETB-010",
+    "TC-ETB-011",
+    "TC-ETB-012",
+    "TC-ETB-013"
+  ],
+  "authority_model": {
+    "requirement": "testdata/onboarding/etb_cases.yaml with recorded workbook provenance",
+    "automation": "tests/android/etb/etb_regression.robot plus referenced production assertion source",
+    "runtime": "canonical evidence_index.json when an accepted/current runtime receipt exists",
+    "design": "supporting structural evidence only; never silently overrides case semantics",
+    "rule": "Requirement, automation and runtime planes remain separate."
+  },
+  "requirement_source": {
+    "contract_path": "testdata/onboarding/etb_cases.yaml",
+    "upstream_file": "docs/source/testcases/etb/current/QA_TestCase_OPO_ETB Registration_Automation.xlsx",
+    "upstream_sheet": "Test Cases",
+    "scope": "TC-ETB-001..TC-ETB-013"
+  },
+  "historical_pilot": "configs/etb_traceability_pilot.json",
+  "acceptance_snapshot": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+  "mappings": [
+    {
+      "case_id": "TC-ETB-001",
+      "requirement": {
+        "source_row": 4,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-001 Positive Registration Success",
+        "case_type": "positive",
+        "assertion_keyword": "Complete ETB Onboarding",
+        "assertion_path": "resources/keywords/etb/etb_keywords.resource",
+        "terminal_state": "registration success/control screen",
+        "expected_error_code": null
+      },
+      "runtime": {
+        "status": "NOT_IN_CURRENT_ACCEPTANCE_SNAPSHOT",
+        "evidence_index": null
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": false
+      }
+    },
+    {
+      "case_id": "TC-ETB-002",
+      "requirement": {
+        "source_row": 5,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-002 Positive Registration With PDPA Clause 6",
+        "case_type": "positive",
+        "assertion_keyword": "Run ETB TC002 PDPA Case",
+        "assertion_path": "resources/keywords/etb/etb_regression_keywords.resource",
+        "terminal_state": "registration success/control screen",
+        "expected_error_code": null
+      },
+      "runtime": {
+        "status": "BLOCKED_DEGRADED",
+        "run_id": "20260927T044036405305Z-p8528",
+        "local_evidence_index": "reports/run-etb/20260927T044036405305Z-p8528/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": false
+      }
+    },
+    {
+      "case_id": "TC-ETB-003",
+      "requirement": {
+        "source_row": 6,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-003 Positive Product Selection Variant",
+        "case_type": "positive",
+        "assertion_keyword": "Run ETB Positive Case",
+        "assertion_path": "resources/keywords/etb/etb_regression_keywords.resource",
+        "terminal_state": "registration success/control screen",
+        "expected_error_code": null
+      },
+      "runtime": {
+        "status": "BLOCKED_REQUIREMENT_CONFLICT_AND_RUNTIME",
+        "run_id": "20260927T031747603243Z-p15368",
+        "local_evidence_index": "reports/run-etb/20260927T031747603243Z-p15368/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": false
+      }
+    },
+    {
+      "case_id": "TC-ETB-004",
+      "requirement": {
+        "source_row": 7,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-004 Positive Product Selection Existing Accounts",
+        "case_type": "positive",
+        "assertion_keyword": "Run ETB Positive Case",
+        "assertion_path": "resources/keywords/etb/etb_regression_keywords.resource",
+        "terminal_state": "registration success/control screen",
+        "expected_error_code": null
+      },
+      "runtime": {
+        "status": "BLOCKED_RUNTIME",
+        "run_id": "20260927T032347728621Z-p21564",
+        "local_evidence_index": "reports/run-etb/20260927T032347728621Z-p21564/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": false
+      }
+    },
+    {
+      "case_id": "TC-ETB-005",
+      "requirement": {
+        "source_row": 8,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-005 Mobile Number Mismatch RGI Popup",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected RGI Popup",
+        "assertion_path": "resources/pages/etb/rgi_popup_page.resource",
+        "terminal_state": "popup closed",
+        "expected_error_code": "RGI-079"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260927T042429089204Z-p89952",
+        "local_evidence_index": "reports/run-etb/20260927T042429089204Z-p89952/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-006",
+      "requirement": {
+        "source_row": 9,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-006 DOB Mismatch RGI Popup",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected RGI Popup",
+        "assertion_path": "resources/pages/etb/rgi_popup_page.resource",
+        "terminal_state": "popup closed",
+        "expected_error_code": "RGI-076"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260926T115141850200Z-p76191",
+        "local_evidence_index": "reports/run-etb/20260926T115141850200Z-p76191/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-007",
+      "requirement": {
+        "source_row": 10,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-007 Expired Citizen ID Full-Screen RGI",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected Full Screen RGI",
+        "assertion_path": "resources/pages/etb/full_screen_rgi_page.resource",
+        "terminal_state": "app closed",
+        "expected_error_code": "RGI-012"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260926T125124984763Z-p17809",
+        "local_evidence_index": "reports/run-etb/20260926T125124984763Z-p17809/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-008",
+      "requirement": {
+        "source_row": 11,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-008 High-Risk 3A Full-Screen RGI",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected Full Screen RGI",
+        "assertion_path": "resources/pages/etb/full_screen_rgi_page.resource",
+        "terminal_state": "app closed",
+        "expected_error_code": "RGI-014"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260926T125749592097Z-p22905",
+        "local_evidence_index": "reports/run-etb/20260926T125749592097Z-p22905/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-009",
+      "requirement": {
+        "source_row": 12,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-009 High-Risk 3V Full-Screen RGI",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected Full Screen RGI",
+        "assertion_path": "resources/pages/etb/full_screen_rgi_page.resource",
+        "terminal_state": "app closed",
+        "expected_error_code": "RGI-014"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260926T130442549114Z-p24890",
+        "local_evidence_index": "reports/run-etb/20260926T130442549114Z-p24890/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-010",
+      "requirement": {
+        "source_row": 13,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-010 High-Risk 3U Full-Screen RGI",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected Full Screen RGI",
+        "assertion_path": "resources/pages/etb/full_screen_rgi_page.resource",
+        "terminal_state": "app closed",
+        "expected_error_code": "RGI-014"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260927T033120788982Z-p29583",
+        "local_evidence_index": "reports/run-etb/20260927T033120788982Z-p29583/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-011",
+      "requirement": {
+        "source_row": 14,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-011 High-Risk 3B Full-Screen RGI",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected Full Screen RGI",
+        "assertion_path": "resources/pages/etb/full_screen_rgi_page.resource",
+        "terminal_state": "app closed",
+        "expected_error_code": "RGI-014"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260927T041035604187Z-p75478",
+        "local_evidence_index": "reports/run-etb/20260927T041035604187Z-p75478/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-012",
+      "requirement": {
+        "source_row": 15,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-012 Low IAL Full-Screen RGI",
+        "case_type": "expected_rgi",
+        "assertion_keyword": "Handle Expected Full Screen RGI",
+        "assertion_path": "resources/pages/etb/full_screen_rgi_page.resource",
+        "terminal_state": "app closed",
+        "expected_error_code": "RGI-013"
+      },
+      "runtime": {
+        "status": "TRUSTED_PASS",
+        "run_id": "20260927T041501698390Z-p80301",
+        "local_evidence_index": "reports/run-etb/20260927T041501698390Z-p80301/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": true
+      }
+    },
+    {
+      "case_id": "TC-ETB-013",
+      "requirement": {
+        "source_row": 16,
+        "contract_path": "testdata/onboarding/etb_cases.yaml",
+        "authority": "CASE_CONTRACT_WITH_WORKBOOK_PROVENANCE"
+      },
+      "automation": {
+        "suite_path": "tests/android/etb/etb_regression.robot",
+        "test_name": "TC-ETB-013 Mule Warning Full-Screen RGI",
+        "case_type": "expected_rgi_after_laser",
+        "assertion_keyword": "Run ETB Expected RGI After Laser Code",
+        "assertion_path": "resources/keywords/etb/etb_regression_keywords.resource",
+        "terminal_state": "app closed",
+        "expected_error_code": "RGI-016"
+      },
+      "runtime": {
+        "status": "OPEN_TEST_DATA_BACKEND_BRANCH",
+        "run_id": "20260927T050452876260Z-p34690",
+        "local_evidence_index": "reports/run-etb/20260927T050452876260Z-p34690/evidence_index.json",
+        "acceptance_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+        "evidence_retention": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT"
+      },
+      "coverage": {
+        "static_traceability": true,
+        "runtime_acceptance": false
+      }
+    }
+  ],
+  "exceptions": [
+    {
+      "case_id": "TC-ETB-003",
+      "type": "REQUIREMENT_CONFLICT",
+      "detail": "PDPA visibility remains clarification_required; product-selection MUST_SKIP is confirmed."
+    },
+    {
+      "case_id": "TC-ETB-013",
+      "type": "TEST_DATA_BACKEND_BRANCH",
+      "detail": "Latest runtime follows normal OTP branch after Laser Code Next instead of RGI-016; mule/suspicious-account profile preparation is required."
+    }
+  ],
+  "coverage_policy": {
+    "static_scope_denominator": 13,
+    "static_scope_mapped": 13,
+    "runtime_pass_count": 8,
+    "runtime_coverage_percentage_allowed": false,
+    "reason": "Current runtime acceptance is intentionally incomplete and Block B is paused; do not turn partial runtime state into a product coverage percentage."
+  },
+  "runtime_binding_policy": {
+    "committed_source": "docs/standards/BBL_ETB_ACCEPTANCE_SNAPSHOT_2026-09-27.md",
+    "local_evidence": "reports/run-etb/<run_id>/evidence_index.json",
+    "clean_checkout_rule": "Static traceability validates committed receipt metadata and run IDs only; local reports are never required in Git."
+  }
+}

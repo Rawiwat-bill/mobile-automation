@@ -1,12 +1,14 @@
 *** Settings ***
 Documentation    Consolidated, data-driven ETB regression cases TC-ETB-001 through TC-ETB-013.
 Resource         ../../../resources/keywords/etb/etb_regression_keywords.resource
+Resource         ../../../resources/keywords/etb/etb_session_lifecycle.resource
 Library          ../../../libraries/robot_output_sanitizer.py
+Library          ../../../libraries/startup_state.py
 
-Suite Setup      Open Mobile Application
-Suite Teardown   Close Application
+Suite Setup      Prepare ETB Regression Suite
+Suite Teardown   No Operation
 Test Setup       Reset ETB Regression Application
-Test Teardown    Normalize ETB Regression Application
+Test Teardown    Finalize ETB Regression Test
 
 *** Test Cases ***
 TC-ETB-001 Positive Registration Success
@@ -19,11 +21,11 @@ TC-ETB-002 Positive Registration With PDPA Clause 6
 
 TC-ETB-003 Positive Product Selection Variant
     [Tags]    etb    regression    positive    product-selection
-    Run ETB Positive Case    etb_tc_003
+    Run ETB Positive Case    etb_tc_003    assert_3c=${True}
 
 TC-ETB-004 Positive Product Selection Existing Accounts
     [Tags]    etb    regression    positive    product-selection
-    Run ETB Positive Case    etb_tc_004
+    Run ETB Positive Case    etb_tc_004    assert_3c=${True}
 
 TC-ETB-005 Mobile Number Mismatch RGI Popup
     [Tags]    etb    regression    rgi    rgi-popup    smoke

@@ -43,6 +43,29 @@ Input Citizen ID
     Wait Until Element Is Visible    ${TELL_US_ABOUT_YOU_CITIZEN_ID_CONTAINER}    ${NCBD_LOADING_TIMEOUT}
     Click Element    ${TELL_US_ABOUT_YOU_CID_INPUT}
     Input Text And Hide Keyboard    ${TELL_US_ABOUT_YOU_CID_INPUT}    ${citizen_id}
+    Observe Profile Boundary    P1
+
+Observe Profile Boundary
+    [Documentation]    Lightweight two-point Profile boundary observation; never records source or field values.
+    [Arguments]    ${point}
+    ${source}=    Get Source
+    ${dob_container}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_textInputDob-container
+    ${dob_input}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_textInputDob
+    ${mobile_container}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_textInputMobileNumber-container
+    ${next_button}=    Run Keyword And Return Status    Should Contain    ${source}    screenProfile_buttonNext
+    ${title}=    Run Keyword And Return Status    Should Contain    ${source}    Tell us about you
+    ${activity}=    Get Activity
+    ${appium_library}=    Get Library Instance    AppiumLibrary
+    ${package}=    Evaluate    $appium_library._current_application().current_package
+    Log    [PROFILE_BOUNDARY] ${point} dob-container=${dob_container} dob=${dob_input} mobile-container=${mobile_container} next=${next_button} title=${title} package=${package} activity=${activity}    WARN
+    IF    not ${dob_container} or not ${dob_input}
+        ${profile_markers}=    Evaluate    ${mobile_container} or ${next_button} or ${title}
+        IF    ${profile_markers}
+            Fail    PROFILE_DOB_MARKER_LOST_AFTER_KEYBOARD_DISMISS
+        ELSE
+            Fail    PROFILE_STATE_CHANGED_AFTER_KEYBOARD_DISMISS
+        END
+    END
 
 Select Date Of Birth
     [Documentation]    Input the date of birth on the "Tell us about you" screen

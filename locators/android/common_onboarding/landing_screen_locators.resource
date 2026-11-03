@@ -7,3 +7,7 @@ ${LANDING_READY_BUTTON}                 xpath=//*[@resource-id="screenLanding_bu
 ${LANDING_TITLE_TEXT}                   xpath=//*[@resource-id="screenLanding_titleText0"]
 ${LANDING_DESCRIPTION_TEXT}             xpath=//*[@resource-id="screenLanding_descriptionText0"]
 ${LANDING_INDICATOR}                    xpath=//*[@resource-id="screenLanding_slickBarIndicator"]
+${LANDING_FULL_SCREEN_GUB_CTA}          xpath=//*[@resource-id="screenLanding_Full-Screen_Gub_CTAButton0"]
+${LANDING_POPUP_GUB_CONTAINER}          xpath=//*[@resource-id="screenLanding_Pop-Up_Gub_Container"]
+${LANDING_POPUP_GUB_SUPPORT_CODE}       xpath=(//*[@resource-id="screenLanding_Pop-Up_Gub_SupportCode"])[last()]
+${LANDING_OFFLINE_MESSAGE}              xpath=//*[contains(@text,"No internet connection") or contains(@content-desc,"No internet connection")]

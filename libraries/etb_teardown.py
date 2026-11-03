@@ -8,15 +8,18 @@ logs or result artifacts.
 from __future__ import annotations
 
 import json
+import os
+import ssl
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPSHandler, Request, build_opener
 
+from libraries.config_loader import load_profile as _approved_load_profile
 from libraries.config_loader import load_yaml as _approved_load_yaml
 
-_DELETE_URL = "https://blue-engagementservice-dev.azure.test.bbl/qahelper/api/v1/cis/qa/profile/db"
 _TIMEOUT_SECONDS = 30
+_PROFILE_NAMES = frozenset({"etb", "ntb_ilove", "ntb_somjai", "ilove", "somjai"})
 _EXPECTED_NOT_FOUND = {
     "http_status": 404,
     "httpStatus": "NOT_FOUND",
@@ -28,12 +31,13 @@ _EXPECTED_NOT_FOUND = {
 def _write_result(output_dir: str, result: dict[str, Any]) -> dict[str, Any]:
     path = Path(output_dir) / "etb_teardown_result.json"
     path.parent.mkdir(parents=True, exist_ok=True)
+    result = {"artifact_classification": "SANITIZED_SHAREABLE", **result}
     path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return result
 
 
 def _resolve_id_num(testdata_path: str) -> str:
-    data = _approved_load_yaml(testdata_path)
+    data = _approved_load_profile(testdata_path) if testdata_path in _PROFILE_NAMES else _approved_load_yaml(testdata_path)
     try:
         id_num = data["profile"]["citizen_id"]
     except (KeyError, TypeError) as exc:
@@ -41,6 +45,16 @@ def _resolve_id_num(testdata_path: str) -> str:
     if not isinstance(id_num, str) or not id_num:
         raise ValueError("ETB testdata profile.citizen_id must be a non-empty string")
     return id_num
+
+
+def _delete_url() -> str:
+    return os.environ.get("CIS_CLEAR_URL", "").strip()
+
+
+def _open_default():
+    ca_bundle = os.environ.get("PDPA_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
+    context = ssl.create_default_context(cafile=ca_bundle) if ca_bundle else ssl.create_default_context()
+    return build_opener(HTTPSHandler(context=context)).open
 
 
 def _parse_json_body(raw_body: bytes) -> dict[str, Any]:
@@ -52,15 +66,23 @@ def _parse_json_body(raw_body: bytes) -> dict[str, Any]:
 
 
 def _delete_once(id_num: str) -> dict[str, Any]:
+    delete_url = _delete_url()
+    if not delete_url:
+        return {
+            "http_status": None,
+            "httpStatus": None,
+            "errorType": "CIS_CLEAR_URL_REQUIRED",
+            "errorMessage": None,
+        }
     payload = json.dumps({"idNum": id_num}).encode("utf-8")
     request = Request(
-        _DELETE_URL,
+        delete_url,
         data=payload,
         headers={"accept": "application/json", "Content-Type": "application/json"},
         method="DELETE",
     )
     try:
-        with urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
+        with _open_default()(request, timeout=_TIMEOUT_SECONDS) as response:
             status = int(response.status)
             body = _parse_json_body(response.read())
             return {
@@ -104,6 +126,13 @@ def delete_etb_profile_after_success(testdata_path: str, output_dir: str) -> dic
     checkpoint. Raw request/response data remains local to this function and is
     never logged or written to the result artifact.
     """
+    if os.environ.get("CIS_MODE", "").upper() == "EXTERNAL_PREPARED" or os.environ.get("ETB_ENVIRONMENT", "").upper() == "SIT":
+        return _write_result(output_dir, {
+            "etb_teardown": "NOT_ATTEMPTED",
+            "cleanup_owner": "EXTERNAL_TEAM",
+            "cleanup_allowed": "FALSE",
+            "cleanup_state": "EXTERNAL_PREPARATION_MODE",
+        })
     id_num = _resolve_id_num(testdata_path)
     first = _delete_once(id_num)
     second = _delete_once(id_num)

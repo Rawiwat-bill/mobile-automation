@@ -1,0 +1,161 @@
+{
+  "schema": "bbl-automation-wiki-retrieval-benchmark/v1",
+  "clean_checkout_policy": "LOCAL_ONLY_NOT_REQUIRED_FOR_CLEAN_CHECKOUT",
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "What is the authoritative DEV build for current ETB automation?",
+      "page": "local/obsidian-bbl/wiki/automation/runtime-matrix.md",
+      "must_contain": [
+        "versionCode: `182`",
+        "com.bangkokbank.blue.dev"
+      ]
+    },
+    {
+      "id": "Q02",
+      "question": "What should automation do when RGI-109 appears?",
+      "page": "local/obsidian-bbl/wiki/automation/runtime-branches.md",
+      "must_contain": [
+        "RGI-109",
+        "Maybe later",
+        "never choose `Update app`"
+      ]
+    },
+    {
+      "id": "Q03",
+      "question": "Is security-error-container alone sufficient evidence of an app error?",
+      "page": "local/obsidian-bbl/wiki/automation/runtime-branches.md",
+      "must_contain": [
+        "not an error marker",
+        "security-error-container only",
+        "Landing Skip"
+      ]
+    },
+    {
+      "id": "Q04",
+      "question": "Which emulator pair is the current focused DEV ETB target?",
+      "page": "local/obsidian-bbl/wiki/automation/runtime-matrix.md",
+      "must_contain": [
+        "emulator-5556",
+        "Pixel_10_PlayStore"
+      ]
+    },
+    {
+      "id": "Q05",
+      "question": "How are requirement, Figma, automation and runtime evidence separated?",
+      "page": "local/obsidian-bbl/wiki/automation/traceability.md",
+      "must_contain": [
+        "No authority plane silently overwrites another.",
+        "Requirement / case contract",
+        "Runtime evidence"
+      ]
+    },
+    {
+      "id": "Q06",
+      "question": "What is the TC-ETB-001 PDPA policy in the traceability pilot?",
+      "page": "local/obsidian-bbl/wiki/automation/traceability.md",
+      "must_contain": [
+        "TC-ETB-001",
+        "PDPA policy: `MUST_SKIP`",
+        "Product Selection: `REQUIRED`"
+      ]
+    },
+    {
+      "id": "Q07",
+      "question": "When may a failed run be called PRODUCT?",
+      "page": "local/obsidian-bbl/wiki/automation/result-trust.md",
+      "must_contain": [
+        "Use `PRODUCT` only when evidence establishes",
+        "automation/runtime defect",
+        "expected behavior is authoritative"
+      ]
+    },
+    {
+      "id": "Q08",
+      "question": "What triggers an Automation Wiki update and how is provenance preserved?",
+      "page": "local/obsidian-bbl/wiki/automation/wiki-maintenance.md",
+      "must_contain": [
+        "## Update triggers",
+        "Required provenance per fact",
+        "Do not promote `RUNTIME_EVIDENCE`"
+      ]
+    },
+    {
+      "id": "Q09",
+      "question": "What is the latest trustworthy TC-ETB-001 result and its current blocker?",
+      "page": "local/obsidian-bbl/wiki/automation/current-status.md",
+      "must_contain": [
+        "20260921T065507520021Z-p13706",
+        "blocker type: `APPLICATION`",
+        "blocker code: `TERMS_CONTENT_NOT_RENDERED`",
+        "result trust: `TRUSTED`"
+      ]
+    },
+    {
+      "id": "Q10",
+      "question": "How is consent scroll progress determined on Pixel 10 PlayStore?",
+      "page": "local/obsidian-bbl/wiki/automation/current-status.md",
+      "must_contain": [
+        "canonical ADB screenshot hashes",
+        "CONSENT_SCROLL_STALLED",
+        "prior visual progress + repeated unchanged frames"
+      ]
+    },
+    {
+      "id": "Q11",
+      "question": "What currently gates TC002-013 after trustworthy ETB Smoke?",
+      "page": "local/obsidian-bbl/wiki/automation/current-status.md",
+      "must_contain": [
+        "20260921T072429991572Z-p64233",
+        "TC-ETB-001",
+        "TC-ETB-005",
+        "TERMS_CONTENT_NOT_RENDERED",
+        "TC002-013 remain contained"
+      ]
+    },
+    {
+      "id": "Q12",
+      "question": "Is the Figma-derived Wiki evidence immutably bound for the ETB pilot?",
+      "page": "local/obsidian-bbl/wiki/automation/current-status.md",
+      "must_contain": [
+        "snapshot status: `VERIFIED_IMMUTABLE_BINDING`",
+        "configs/etb_wiki_snapshot.json",
+        "a9224f102d6787f318de344f55a5c1eca0411bc424340b871b45cee41dad216d"
+      ]
+    },
+    {
+      "id": "Q13",
+      "question": "What is the current DEV transport state and how is it checked?",
+      "page": "local/obsidian-bbl/wiki/automation/etb-runtime.md",
+      "must_contain": [
+        "CIS transport: `READY`",
+        "pnpm run maint:etb-dev-cis-status",
+        "DNS_RESOLUTION_FAILURE",
+        "approved VPN/internal DNS path"
+      ]
+    },
+    {
+      "id": "Q14",
+      "question": "What gate sequence should be used while the shared Terms application blocker is active?",
+      "page": "local/obsidian-bbl/wiki/automation/recovery-playbook.md",
+      "must_contain": [
+        "pnpm run maint:etb-dev-cis-ready",
+        "TC001 TRUSTED FAIL / APPLICATION / TERMS_CONTENT_NOT_RENDERED",
+        "pnpm run maint:etb-dev-pixel10-smoke",
+        "shared common-onboarding containment gate",
+        "pnpm run maint:etb-dev-pixel10-regression"
+      ]
+    },
+    {
+      "id": "Q15",
+      "question": "How does APPLICATION differ from PRODUCT in ETB result trust?",
+      "page": "local/obsidian-bbl/wiki/automation/result-trust.md",
+      "must_contain": [
+        "`APPLICATION` means the runtime failure is explicitly localized",
+        "`TERMS_CONTENT_NOT_RENDERED`",
+        "Do not translate an `APPLICATION` origin to `PRODUCT`",
+        "known `APPLICATION` failure with complete evidence"
+      ]
+    }
+  ]
+}

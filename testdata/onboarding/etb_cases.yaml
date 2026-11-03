@@ -3,23 +3,64 @@ source:
   file: docs/source/testcases/etb/current/QA_TestCase_OPO_ETB Registration_Automation.xlsx
   sheet: Test Cases
   scope: TC-ETB-001..TC-ETB-013
+  original_expected_result_baseline: POST_MMP_1
+  requirement_confirmation:
+    date: '2026-09-21'
+    authority: USER_CONFIRMED
+    scope: Baselines, TC001 NA and prior PDPA consent, TC003 no-product skip, optional Pre-SET settings
+# Requirement metadata below does not add release selection or new assertions to Robot.
+# Existing product_selection_policy and pdpa_policy remain the runner-consumed policies.
+requirement_baselines:
+  MMP_LOT2_V2:
+    label: MMP Lot2 V.2
+  POST_MMP_1:
+    label: Post-MMP 1
+    design_revision_note: Wiki Dev V.3 versus cover Version 2 is not resolved by the release confirmation.
+pre_setting_requirements:
+  applies_to: [TC-ETB-001, TC-ETB-002, TC-ETB-003, TC-ETB-004]
+  settings_required: false
+  action: Tap Let's go without configuring email, biometric or Passkey
+  subsequent_screens: [Introduction 3C, 'Control screen: 3C']
+  by_release:
+    MMP_LOT2_V2:
+      passkey_section: MUST_NOT_DISPLAY
+    POST_MMP_1:
+      success_title: You're all set!
+      passkey_section: MUST_DISPLAY
+      add_email_option: MUST_DISPLAY
 execution_lifecycle:
   preparation:
-    cis_clear: REQUIRED
+    cis_clear: ENVIRONMENT_AWARE
   cleanup:
-    cis_clear: REQUIRED
+    cis_clear: ENVIRONMENT_AWARE
+domains:
+  cis:
+    DEV:
+      preparation_owner: AUTOMATION
+      clear_allowed: according_to_existing_DEV_policy
+    SIT:
+      preparation_owner: EXTERNAL_TEAM
+      clear_allowed: false
+      post_test_delete_allowed: false
+  pdpa:
+    DEV:
+      preparation: APPROVED_SHARED_ADAPTER
+    SIT:
+      preparation: APPROVED_SHARED_ADAPTER
+    environment_specific_logic_required: false
 cases:
   etb_tc_001:
     tc_id: TC-ETB-001
-    name: Customer is Pass all registration conditions and answer PDPA clause 6 =
-      Accept
+    name: ETB with NA happy case with previously accepted PDPA Clause 6
     enabled: true
     profile_id: etb_tc_001
     tags:
     - positive
     - pdpa
-    expected_branch: positive path; PDPA visibility conflicts between title and expected
-      result
+    expected_branch: ETB happy path; prior PDPA consent; Product Selection required; Confirm PIN not an asserted Post-MMP checkpoint
+    product_selection_policy: REQUIRED
+    pdpa_policy: MUST_SKIP
+    expected_product_categories: []
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -28,8 +69,13 @@ cases:
     readiness: READY_TO_ATTEMPT_RUNTIME
     execution_status: APPROVED_TO_PROCEED
     clarification_required: []
-    official_expected_result: "Not display \n- PDPA screen\nDisplay \n- Select Product\
-      \ screen \n- Pre-SET Success screen\n- Intoduction 3C\n- Control screen : 3C\n"
+    official_expected_result: |-
+      Post-MMP 1
+      - Do not display PDPA screen.
+      - Display Select Product screen.
+      - Display Pre-SET Success screen.
+      - Display Introduction 3C.
+      - Display Control screen: 3C.
     source_row: 4
     data_readiness: UI_DATA_READY
     otp_policy: APPROVED_SHARED_DEFAULT
@@ -38,8 +84,25 @@ cases:
     prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
     runtime_status: RUNTIME_EVIDENCE_REQUIRED
     pdpa_reset_required: false
-    interpretation_note: Title conflicts with Expected Result; execution planning
-      follows Expected Result, which says PDPA is not displayed.
+    interpretation_note: User confirmed prior PDPA acceptance. PDPA must not display. Post-MMP assertion focuses on Product Selection, Pre-SET Success, Introduction 3C, and Control 3C; Confirm PIN is not an asserted checkpoint for TC001.
+    supported_requirement_baselines:
+    - MMP_LOT2_V2
+    - POST_MMP_1
+    preconditions:
+    - Delete CIS ID according to environment policy.
+    - ETB with NA. All registration conditions pass.
+    - PDPA Clause 6 consent is already accepted and valid for this flow. Do not reset PDPA.
+    - At least one eligible product is available.
+    - Select MMP Lot2 V.2 or Post-MMP 1 before execution.
+    test_steps:
+    - Start ETB registration with the prepared profile.
+    - Complete the existing identity verification, OTP and face verification flow. Verify that PDPA is
+      not displayed.
+    - Verify Select Product, select/confirm products and continue.
+    - Verify the Pre-SET Success screen.
+    - Continue through Introduction 3C and verify Control screen: 3C.
+    auth_route: ETB_WITH_NA
+    confirm_pin_policy: OPTIONAL
   etb_tc_002:
     tc_id: TC-ETB-002
     name: Customer is Pass all registration conditions and never given PDPA consent
@@ -50,16 +113,26 @@ cases:
     - positive
     - pdpa
     expected_branch: positive path with PDPA Clause 6 displayed and accepted
+    product_selection_policy: REQUIRED
+    pdpa_policy: REQUIRED
+    expected_product_categories: []
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
     terminal_state: registration success/control screen
     cleanup_required: true
-    readiness: HOLD_PDPA_RESET_CURL
-    execution_status: HOLD_PDPA_RESET_CURL
+    readiness: READY_TO_ATTEMPT_RUNTIME
+    execution_status: APPROVED_TO_PROCEED
     clarification_required: []
-    official_expected_result: "Display \n- PDPA screen\n- Select Product screen \n\
-      - Pre-SET Success screen\n- Intoduction 3C\n- Control screen : 3C"
+    official_expected_result: |-
+      MMP Lot2 V.2 / Post-MMP 1
+      - Display PDPA and accept consent.
+      - Display Select Product and confirm product selection.
+      - Display Pre-SET Success (You're all set!).
+      - Settings are optional. Tap Let's go without setting up email, biometric or Passkey.
+      - Display Introduction 3C, then Control screen: 3C.
+      MMP Lot2 V.2: Do not display Set Passkey.
+      Post-MMP 1: Display Passkey and Add email as in the confirmed success screen.
     source_row: 5
     data_readiness: UI_DATA_READY
     otp_policy: APPROVED_SHARED_DEFAULT
@@ -68,7 +141,7 @@ cases:
     prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
     runtime_status: RUNTIME_EVIDENCE_REQUIRED
     pdpa_reset_required: true
-    pdpa_reset_blocker: PDPA_RESET_CURL_PENDING
+    pdpa_reset_blocker: null
     execution_lifecycle:
       preparation:
         cis_clear: REQUIRED
@@ -76,16 +149,22 @@ cases:
       cleanup:
         cis_clear: REQUIRED
         pdpa_clear: BEST_EFFORT
+    supported_requirement_baselines:
+    - MMP_LOT2_V2
+    - POST_MMP_1
   etb_tc_003:
     tc_id: TC-ETB-003
-    name: Customer not have active Savings account
+    name: Customer has no saving account and no products
     enabled: true
     profile_id: etb_tc_003
     tags:
     - positive
     - product-selection
     - clarification
-    expected_branch: no active Savings account; Product Selection skip/display conflict
+    expected_branch: No saving account and no products; skip Product Selection in both releases
+    product_selection_policy: MUST_SKIP
+    pdpa_policy: UNRESOLVED
+    expected_product_categories: []
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -94,10 +173,15 @@ cases:
     readiness: READY_TO_ATTEMPT_RUNTIME
     execution_status: APPROVED_TO_PROCEED
     clarification_required:
-    - Clarify the conflicting Select Product outcomes in Expected Result.
-    official_expected_result: "Not display \n- Select Product screen (Skip)\nDisplay\
-      \ \n- Select Product screen \n- Pre-SET Success screen\n- Intoduction 3C\n-\
-      \ Control screen : 3C\n"
+    - Confirm PDPA visibility for TC003; product-selection skip is already confirmed.
+    official_expected_result: |-
+      MMP Lot2 V.2 / Post-MMP 1
+      - Do not display Select Product (no products).
+      - Display Pre-SET Success (You're all set!).
+      - Settings are optional. Tap Let's go without setting up email, biometric or Passkey.
+      - Display Introduction 3C, then Control screen: 3C.
+      MMP Lot2 V.2: Do not display Set Passkey.
+      Post-MMP 1: Display Passkey and Add email as in the confirmed success screen.
     source_row: 6
     data_readiness: UI_DATA_READY
     otp_policy: APPROVED_SHARED_DEFAULT
@@ -106,6 +190,24 @@ cases:
     prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
     runtime_status: RUNTIME_EVIDENCE_REQUIRED
     pdpa_reset_required: false
+    supported_requirement_baselines:
+    - MMP_LOT2_V2
+    - POST_MMP_1
+    preconditions:
+    - Delete CIS ID according to environment policy.
+    - No saving account and no products available for selection.
+    - PDPA visibility is not yet confirmed for this case.
+    - Select MMP Lot2 V.2 or Post-MMP 1 before execution.
+    test_steps:
+    - Start ETB registration with the prepared no-product profile.
+    - Complete the applicable registration and PIN flow. Record PDPA visibility; its expected policy
+      is still unresolved.
+    - Verify that Select Product is not displayed.
+    - Verify the release-specific Pre-SET Success screen. Leave optional settings unchanged and tap Let's
+      go.
+    - 'Continue through Introduction 3C and verify Control screen: 3C.'
+    interpretation_note: User confirmed no products and MUST_SKIP for both releases. This replaces the
+      contradictory Select Product text in the original expected result.
   etb_tc_004:
     tc_id: TC-ETB-004
     name: Customer have Saving, e-Saving account
@@ -116,6 +218,9 @@ cases:
     - product-selection
     expected_branch: existing Saving and e-Saving accounts; Product Selection account
       display
+    product_selection_policy: REQUIRED
+    pdpa_policy: UNRESOLVED
+    expected_product_categories: [Saving, e-Saving]
     expected_screen: 'Control screen: 3C'
     expected_error_code: null
     expected_action: Complete registration flow
@@ -124,9 +229,15 @@ cases:
     readiness: READY_TO_ATTEMPT_RUNTIME
     execution_status: APPROVED_TO_PROCEED
     clarification_required: []
-    official_expected_result: "Display \n- Select Product screen : found Saving, e-Saving\
-      \ account on the screen\n- Pre-SET Success screen\n- Intoduction 3C\n- Control\
-      \ screen : 3C"
+    official_expected_result: |-
+      MMP Lot2 V.2 / Post-MMP 1
+      - Display Select Product with Saving and e-Saving accounts.
+      - Confirm product selection.
+      - Display Pre-SET Success (You're all set!).
+      - Settings are optional. Tap Let's go without setting up email, biometric or Passkey.
+      - Display Introduction 3C, then Control screen: 3C.
+      MMP Lot2 V.2: Do not display Set Passkey.
+      Post-MMP 1: Display Passkey and Add email as in the confirmed success screen.
     source_row: 7
     data_readiness: UI_DATA_READY
     otp_policy: APPROVED_SHARED_DEFAULT
@@ -135,6 +246,9 @@ cases:
     prepared_profile_status: PREPARED_PROFILE_ASSUMED_READY
     runtime_status: RUNTIME_EVIDENCE_REQUIRED
     pdpa_reset_required: false
+    supported_requirement_baselines:
+    - MMP_LOT2_V2
+    - POST_MMP_1
   etb_tc_005:
     tc_id: TC-ETB-005
     name: 'Customer enter Mobile number mismatch in RM  '
@@ -393,9 +507,9 @@ policy:
   - Test Case Name
   prepared_profile_policy: PREPARED_PROFILE_ASSUMED_READY unless runtime evidence
     reclassifies it
-  pdpa_reset_status: PDPA_RESET_CURL_PENDING
-  pdpa_reset_remark: Waiting for the team-provided curl command to delete or reset
-    PDPA state.
-  execution_policy: TC-ETB-002 is the only case currently held; TC-ETB-001 and
-    TC-ETB-003..TC-ETB-013 are approved to proceed. Clarification notes are
-    informational and non-blocking.
+  pdpa_reset_status: APPROVED_LOCAL_ADAPTER
+  pdpa_reset_remark: Approved local PDPA Web Forms preparation adapter is configured
+    and statically validated.
+  execution_policy: TC-ETB-001..TC-ETB-013 are approved to proceed. Clarification
+    notes are informational and non-blocking; runtime evidence may still reclassify
+    a prepared profile when the expected branch is not reached.

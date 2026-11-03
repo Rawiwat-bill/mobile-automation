@@ -1,0 +1,24 @@
+{
+  "schema": "bbl-etb-wiki-snapshot/v1",
+  "generated_at": "2026-09-21",
+  "sources": [
+    {
+      "source_id": "SRC-OPO-FIGMA-ETB-MMP-001",
+      "path": "local/obsidian-bbl/etb-mmp.md",
+      "sha256": "3c872cf3fe7caff0088e875145a277870529c147ae5036ab11edf221a1d3b858"
+    },
+    {
+      "source_id": "SRC-OPO-FIGMA-ETB-POST1-001",
+      "path": "local/obsidian-bbl/etb-post1.md",
+      "sha256": "ac11d37a07ed3622ab2d60273e145eea21821e005fda181135f3efa2431ce745"
+    },
+    {
+      "source_id": "SRC-OPO-FIGMA-3C-INTRO-MMP-001",
+      "path": "local/obsidian-bbl/3c-introduction-mmp.md",
+      "sha256": "64b7dc2496d60b3e4f311901991e50df3c6c8a2edd35d7d56c74c6558be9d290"
+    }
+  ],
+  "snapshot_hash": "a9224f102d6787f318de344f55a5c1eca0411bc424340b871b45cee41dad216d",
+  "hash_algorithm": "sha256",
+  "hash_scope": "canonical-json:sources"
+}
