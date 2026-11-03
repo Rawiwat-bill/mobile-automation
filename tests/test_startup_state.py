@@ -14,6 +14,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class StartupStateTests(unittest.TestCase):
+
+    def test_no_internet_dialog_blocks_landing_in_both_observers(self):
+        source = 'text="No internet connection" resource-id="screenLanding_skipButton"'
+        foreground = "com.bangkokbank.blue.dev/com.bangkokbank.blue.MainActivity"
+        self.assertEqual(_classify(source, foreground), "KNOWN_ERROR")
+        self.assertEqual(adb_device._classify_startup_state(source, foreground), "KNOWN_ERROR")
+        self.assertEqual(adb_device._classify_startup_error_marker(source), "NO_INTERNET_CONNECTION")
+
     def test_wrapper_only_is_non_terminal_transition(self):
         self.assertEqual(
             _classify('resource-id="security-error-container"', "com.bangkokbank.blue.MainActivity"),
@@ -62,6 +70,56 @@ class StartupStateTests(unittest.TestCase):
         self.assertGreaterEqual(clock["now"], 45.5)
         self.assertLess(clock["now"], 60.0)
 
+    def test_appium_timeout_accepts_diagnostic_control_adb_landing(self):
+        clock = {"now": 0.0}
+
+        def fake_monotonic():
+            return clock["now"]
+
+        def fake_sleep(seconds):
+            clock["now"] += float(seconds)
+
+        with (
+            patch.object(startup_state.time, "monotonic", side_effect=fake_monotonic),
+            patch.object(startup_state.time, "sleep", side_effect=fake_sleep),
+            patch.object(
+                startup_state,
+                "_snapshot",
+                return_value=('resource-id="security-error-container"', "com.bangkokbank.blue.MainActivity"),
+            ),
+            patch.object(startup_state, "_diagnostic_adb_state", return_value="LANDING"),
+            patch.object(startup_state.BuiltIn, "log", return_value=None) as log,
+        ):
+            result = startup_state.wait_for_real_device_startup_state(timeout=1.0, interval=0.5)
+
+        self.assertEqual(result, "LANDING")
+        self.assertTrue(
+            any("STARTUP_STATE_ADB_FALLBACK=LANDING" in str(call) for call in log.call_args_list)
+        )
+
+    def test_appium_timeout_rejects_nonterminal_adb_state(self):
+        clock = {"now": 0.0}
+
+        def fake_monotonic():
+            return clock["now"]
+
+        def fake_sleep(seconds):
+            clock["now"] += float(seconds)
+
+        with (
+            patch.object(startup_state.time, "monotonic", side_effect=fake_monotonic),
+            patch.object(startup_state.time, "sleep", side_effect=fake_sleep),
+            patch.object(
+                startup_state,
+                "_snapshot",
+                return_value=('resource-id="security-error-container"', "com.bangkokbank.blue.MainActivity"),
+            ),
+            patch.object(startup_state, "_diagnostic_adb_state", return_value="STARTUP_TRANSITION"),
+            patch.object(startup_state.BuiltIn, "log", return_value=None),
+        ):
+            with self.assertRaisesRegex(AssertionError, "STARTUP_STATE_TIMEOUT"):
+                startup_state.wait_for_real_device_startup_state(timeout=1.0, interval=0.5)
+
     def test_adb_dump_removes_previous_xml_before_capture(self):
         calls = []
 
@@ -77,7 +135,7 @@ class StartupStateTests(unittest.TestCase):
         self.assertEqual(source, "<hierarchy />")
         self.assertEqual(
             calls[0][0],
-            ("shell", "rm", "-f", "/sdcard/etb_startup.xml"),
+            ("shell", "rm", "-f", "/data/local/tmp/etb_startup.xml"),
         )
         self.assertEqual(
             calls[1][0],
@@ -86,10 +144,10 @@ class StartupStateTests(unittest.TestCase):
                 "uiautomator",
                 "dump",
                 "--compressed",
-                "/sdcard/etb_startup.xml",
+                "/data/local/tmp/etb_startup.xml",
             ),
         )
-        self.assertEqual(calls[2][0], ("shell", "cat", "/sdcard/etb_startup.xml"))
+        self.assertEqual(calls[2][0], ("shell", "cat", "/data/local/tmp/etb_startup.xml"))
 
     def test_adb_dump_failure_never_reads_stale_xml(self):
         calls = []
@@ -151,7 +209,7 @@ class StartupStateTests(unittest.TestCase):
 
         self.assertEqual(result, "PASS")
         self.assertEqual(dump_source.call_count, 2)
-        sleep.assert_called_once_with(0.5)
+        sleep.assert_called_once_with(1.0)
 
     def test_reset_recovery_wakes_and_dismisses_keyguard_before_retry(self):
         calls = []
@@ -205,8 +263,9 @@ class StartupStateTests(unittest.TestCase):
                     "emulator-5554", "package"
                 )
 
-        self.assertEqual(dump_source.call_count, 3)
-        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual(dump_source.call_count, 4)
+        self.assertEqual(sleep.call_count, 3)
+        self.assertEqual([item.args[0] for item in sleep.call_args_list], [1.0, 2.0, 4.0])
 
     def test_reset_dismisses_exact_stale_aerr_after_pm_clear(self):
         stale = (
@@ -324,7 +383,7 @@ class StartupStateTests(unittest.TestCase):
         self.assertIn("[Arguments]    ${no_reset}=${False}", app_keywords)
         self.assertIn("Get Environment Variable    ETB_CASE_PROFILES    ${EMPTY}", app_keywords)
         self.assertIn(
-            "Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}",
+            "Set To Dictionary    ${capabilities}    appium:noReset=${True}    appium:autoLaunch=${False}    appium:dontStopAppOnReset=${True}    appium:forceAppLaunch=${False}    appium:shouldTerminateApp=${False}    appium:newCommandTimeout=180",
             app_keywords,
         )
         self.assertIn("settings[enforceXPath1]=${True}", app_keywords)

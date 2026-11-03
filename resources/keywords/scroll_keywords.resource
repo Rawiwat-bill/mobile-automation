@@ -140,16 +140,17 @@ Scroll Down Consent Terms With Big Fling
     ${stall_count}=    Set Variable    0
     ${visual_progress_observed}=    Set Variable    ${FALSE}
     ${source}=    Get Source
-    ${bottom_reached}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
+    ${acknowledgement_seen}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
+    ${bottom_reached}=    Set Variable    ${FALSE}
     FOR    ${index}    IN RANGE    ${max_swipes}
-        IF    ${bottom_reached}
-            BREAK
-        END
         Execute Adb Shell    input    swipe    ${start_x}    ${start_y}    ${start_x}    ${end_y}    ${CONSENT_BIG_FLING_DURATION_MS}
         ${swipe_count}=    Evaluate    ${swipe_count} + 1
         Sleep    ${CONSENT_BIG_FLING_SHORT_PAUSE_S}s
         ${source}=    Get Source
-        ${bottom_reached}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
+        ${acknowledgement_visible}=    Run Keyword And Return Status    Should Contain Any    ${source}    I have read and understood    ${CONSENT_THAI_ACKNOWLEDGEMENT_MARKER}
+        IF    ${acknowledgement_visible}
+            ${acknowledgement_seen}=    Set Variable    ${TRUE}
+        END
         ${cur_hash}=    Get Android Screenshot Hash    ${DEVICE_UDID}
         IF    '${cur_hash}' == '${prev_hash}'
             ${stall_count}=    Evaluate    ${stall_count} + 1
@@ -157,15 +158,17 @@ Scroll Down Consent Terms With Big Fling
             ${visual_progress_observed}=    Set Variable    ${TRUE}
             ${stall_count}=    Set Variable    0
         END
-        Log    [CONSENT] fling_swipe=${swipe_count} bottom_reached=${bottom_reached} visual_progress=${visual_progress_observed} visual_stall_count=${stall_count}
-        IF    ${bottom_reached}
-            BREAK
-        END
+        Log    [CONSENT] fling_swipe=${swipe_count} acknowledgement_seen=${acknowledgement_seen} visual_progress=${visual_progress_observed} visual_stall_count=${stall_count}
         IF    ${stall_count} >= 2
-            IF    ${visual_progress_observed}
+            IF    ${visual_progress_observed} and ${acknowledgement_seen}
                 ${bottom_reached}=    Set Variable    ${TRUE}
-                Log    [CONSENT] bottom_state=VISUAL_NO_CHANGE_AFTER_PROGRESS    INFO
+                Log    [CONSENT] bottom_state=PHYSICAL_BOTTOM_AFTER_ACKNOWLEDGEMENT    INFO
                 BREAK
+            END
+            IF    ${visual_progress_observed} and not ${acknowledgement_seen}
+                Capture Page Screenshot
+                Log Source
+                Fail    CONSENT_ACKNOWLEDGEMENT_NOT_REACHED_AT_BOTTOM
             END
             Capture Page Screenshot
             Log Source

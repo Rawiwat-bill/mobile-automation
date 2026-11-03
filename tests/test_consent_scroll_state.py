@@ -156,10 +156,13 @@ class ConsentScrollStateTests(unittest.TestCase):
         block=source.split("Scroll Down Consent Terms With Big Fling",1)[1]
         self.assertIn("Get Android Screenshot Hash    ${DEVICE_UDID}", block)
         self.assertIn("${visual_progress_observed}=    Set Variable    ${TRUE}", block)
-        self.assertIn("bottom_state=VISUAL_NO_CHANGE_AFTER_PROGRESS", block)
+        self.assertIn("bottom_state=PHYSICAL_BOTTOM_AFTER_ACKNOWLEDGEMENT", block)
+        self.assertIn("${acknowledgement_seen}=    Set Variable    ${TRUE}", block)
+        self.assertIn("${visual_progress_observed} and ${acknowledgement_seen}", block)
         self.assertIn("Fail    CONSENT_SCROLL_STALLED", block)
+        self.assertIn("Fail    CONSENT_ACKNOWLEDGEMENT_NOT_REACHED_AT_BOTTOM", block)
         self.assertNotIn("hashlib.sha256($source.encode())", block)
-        self.assertLess(block.index("${visual_progress_observed}=    Set Variable    ${TRUE}"), block.index("bottom_state=VISUAL_NO_CHANGE_AFTER_PROGRESS"))
+        self.assertLess(block.index("${visual_progress_observed}=    Set Variable    ${TRUE}"), block.index("bottom_state=PHYSICAL_BOTTOM_AFTER_ACKNOWLEDGEMENT"))
 
     def test_terms_content_readiness_requires_hydrated_agreement_content(self):
         terms=(ROOT/"resources/pages/common_onboarding/terms_and_conditions_page.resource").read_text(encoding="utf-8")
@@ -250,7 +253,8 @@ class ConsentScrollStateTests(unittest.TestCase):
         self.assertIn("Get Fresh Landing Element Rect    ${LANDING_READY_BUTTON}", recovery_tap)
         self.assertIn("LANDING_RECOVERY_READY_ALREADY_GONE=TRUE", recovery_tap)
         self.assertIn("recovery=DESTINATION_RACE", recovery_tap)
-        self.assertNotIn("Click Element    ${LANDING_READY_BUTTON}", recovery_tap)
+        self.assertIn("Click Element    ${LANDING_READY_BUTTON}", recovery_tap)
+        self.assertNotIn("Execute Adb Shell", recovery_tap)
         self.assertNotIn("Landing Action Should Be Gone", recovery_tap)
 
 

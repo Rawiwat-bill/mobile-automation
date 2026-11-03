@@ -1,5 +1,6 @@
 *** Settings ***
 Library     AppiumLibrary
+Library     String
 Library     ../../../libraries/startup_state.py
 Resource    ../../contracts/flow_states.resource
 Resource    ../../../locators/android/common_onboarding/landing_screen_locators.resource
@@ -151,10 +152,12 @@ Tap Landing Ready Button For Destination Race
         RETURN
     END
     Set Suite Variable    ${LANDING_ACTION_RECT}    ${action_rect}
-    ${center_x}=    Evaluate    int(${action_rect['x']} + (${action_rect['width']} / 2))
-    ${center_y}=    Evaluate    int(${action_rect['y']} + (${action_rect['height']} / 2))
-    Execute Adb Shell    input    tap    ${center_x}    ${center_y}
-    Log    LANDING_ACTION_TAPPED=ADB_FRESH_BOUNDS action=READY recovery=DESTINATION_RACE    INFO
+    ${click_status}    ${click_error}=    Run Keyword And Ignore Error    Click Element    ${LANDING_READY_BUTTON}
+    IF    '${click_status}' != 'PASS'
+        Log    LANDING_RECOVERY_READY_DISAPPEARED_BEFORE_CLICK=TRUE; destination race will prove the next state.    INFO
+        RETURN
+    END
+    Log    LANDING_ACTION_TAPPED=APPIUM action=READY recovery=DESTINATION_RACE    INFO
 
 Landing Ready Should Replace Skip
     [Documentation]    Read-only proof of carousel progression; never retry the action tap.
@@ -183,11 +186,25 @@ Wait For Landing Destination
     ${full_screen_gub}=    Run Keyword And Return Status
     ...    Element Should Be Visible Now    ${LANDING_FULL_SCREEN_GUB_CTA}
     IF    ${full_screen_gub}
-        Fail    LANDING_FULL_SCREEN_GUB_AFTER_ACTION
+        ${gub_code}=    Classify Landing Gub Code
+        Fail    LANDING_FULL_SCREEN_GUB_AFTER_ACTION code=${gub_code}
     END
     ${destination_visible}=    Run Keyword And Return Status    Element Should Be Visible Now    ${destination_locator}
     Should Be True    ${destination_visible}    LANDING_DESTINATION_NOT_OBSERVED
     RETURN    ${FLOW_STATE_NEXT}
+
+Classify Landing Gub Code
+    [Documentation]    Return an exact visible support/error code when present without logging the full source.
+    ${source_status}    ${source}=    Run Keyword And Ignore Error    Get Source
+    IF    '${source_status}' != 'PASS'
+        RETURN    UNKNOWN
+    END
+    ${codes}=    Get Regexp Matches    ${source}    (?:RGI|GOD|AJI|RAI)-[0-9]{3}
+    ${count}=    Get Length    ${codes}
+    IF    ${count} > 0
+        RETURN    ${codes}[0]
+    END
+    RETURN    UNKNOWN
 
 Landing Destination Marker Should Be Visible
     [Documentation]    Read-only poll that becomes terminal for the expected destination, offline state, pop-up Gub, or full-screen Gub.

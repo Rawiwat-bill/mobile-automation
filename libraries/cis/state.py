@@ -5,6 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 MOCK_ENVIRONMENT = "DEV_MOCK"
+ERROR_VALIDATION_CASE_KEYS = frozenset(f"etb_tc_{number:03d}" for number in range(5, 14))
+
+
+def preserved_error_profile_result(phase: str) -> dict[str, Any]:
+    """Preserve prepared error profiles; this does not verify backend readiness."""
+    return {
+        "phase": phase,
+        "cis_mode": "ERROR_VALIDATION",
+        "cis_clear": "NOT_APPLICABLE",
+        "cis_clear_result": "STATE_PRESERVED",
+        "cis_state_ready": "PRESERVED_NOT_VERIFIED",
+        "http_status": "NOT_ATTEMPTED",
+        "transport_category": "NOT_ATTEMPTED",
+        "operation_count": 0,
+    }
 
 
 def mock_result(phase: str) -> dict[str, Any]:

@@ -152,7 +152,7 @@ def clear_once(
         }
     request = Request(
         url,
-        data=json.dumps({"idNum": citizen_id}).encode("utf-8"),
+        data=json.dumps({"idType": "CI", "idNum": citizen_id}).encode("utf-8"),
         headers={"Accept": "application/json", "Content-Type": "application/json"},
         method="DELETE",
     )

@@ -1,8 +1,8 @@
 """Environment-aware, sanitized CIS preparation component for ETB.
 
-DEV retains the existing clear lifecycle. SIT is external-preparation mode:
-this module never sends a CIS mutation there. Identity values are resolved from
-local test data and are never returned or logged.
+TC005–TC013 preserve prepared error profiles without CIS mutation. DEV E2E
+cases retain their clear lifecycle. SIT is external-preparation mode. Identity
+values are resolved from local test data and are never returned or logged.
 """
 
 from __future__ import annotations
@@ -218,7 +218,9 @@ def prepare_cis_state(
     case_key: str,
     output_dir: str,
 ) -> dict[str, Any]:
-    """Prepare CIS for one testcase without mutating SIT."""
+    """Preserve error profiles; otherwise apply the existing environment policy."""
+    if case_key in cis_state.ERROR_VALIDATION_CASE_KEYS:
+        return _write_result(output_dir, "PRE_TEST", cis_state.preserved_error_profile_result("PRE_TEST"))
     if os.environ.get("ETB_ENVIRONMENT", "").upper() == _MOCK_ENVIRONMENT:
         validate_mock_build_context()
         return _write_result(output_dir, "PRE_TEST", _mock_cis_result("PRE_TEST"))
@@ -242,7 +244,9 @@ def cleanup_cis_state(
     case_key: str,
     output_dir: str,
 ) -> dict[str, Any]:
-    """Clean up CIS in DEV; record external ownership in SIT."""
+    """Preserve error profiles, including after a failed test."""
+    if case_key in cis_state.ERROR_VALIDATION_CASE_KEYS:
+        return _write_result(output_dir, "POST_TEST", cis_state.preserved_error_profile_result("POST_TEST"))
     if os.environ.get("ETB_ENVIRONMENT", "").upper() == _MOCK_ENVIRONMENT:
         validate_mock_build_context()
         return _write_result(output_dir, "POST_TEST", _mock_cis_result("POST_TEST"))

@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+import json
 import math
+from pathlib import Path
 import re
 import subprocess
 import time
@@ -22,6 +24,7 @@ except ImportError:  # The core can be tested without Robot/Appium installed.
         return lambda function: function
 
 ROBOT_AUTO_KEYWORDS = False
+_LAST_DOB_PORT = None
 _MONTHS = ('january', 'february', 'march', 'april', 'may', 'june',
            'july', 'august', 'september', 'october', 'november', 'december')
 _MONTH_NUMBERS = {token: i for i, name in enumerate(_MONTHS, 1)
@@ -189,6 +192,8 @@ class ExactDOBController:
             # Geometry is relative to the verified live wheel. Never assume wrap.
             if distance <= 2:
                 fraction = min(fraction, 0.20)
+            wheel_snapshot = getattr(self.port, 'wheel_snapshot', None)
+            before_snapshot = wheel_snapshot(wheel) if wheel_snapshot else None
             self.io(self.port.swipe, wheel, direction, fraction, self.policy.drag_ms)
             self.metrics['gestures'] += 1
 
@@ -198,6 +203,14 @@ class ExactDOBController:
             following = self.intermediate_stable(lambda: self.port.read_wheel(wheel))
             if following == target:
                 following = self.stable(lambda: self.port.read_wheel(wheel))
+
+            record_swipe = getattr(self.port, 'record_swipe', None)
+            if record_swipe is not None:
+                after_snapshot = wheel_snapshot(wheel) if wheel_snapshot else None
+                record_swipe(
+                    wheel, current, following, target, direction, fraction,
+                    self.policy.drag_ms, before_snapshot, after_snapshot,
+                )
 
             delta = abs(following - current)
             self.metrics['wheel_step_deltas'].setdefault(wheel, []).append(delta)
@@ -217,7 +230,7 @@ class ExactDOBController:
         self.metrics['wheel_samples'][wheel] = self.metrics['samples'] - samples_before
         self.metrics['wheel_gestures'][wheel] = self.metrics['gestures'] - gestures_before
 
-    def select(self, expected: ExactDate):
+    def select(self, expected: ExactDate, *, picker_already_open=False):
         if not isinstance(expected, ExactDate):
             raise DOBError('DOB_EXPECTED_DATE_INVALID')
         self.started = self.clock()
@@ -229,7 +242,8 @@ class ExactDOBController:
                         'exact_match': False, 'profile_next_submitted': False}
         try:
             stage_started = self.clock()
-            self.io(self.port.open_picker)
+            if not picker_already_open:
+                self.io(self.port.open_picker)
             self.metrics['stage_seconds']['open_picker'] = round(self.clock() - stage_started, 4)
 
             for wheel, target in zip(('year', 'month', 'day'), expected.ymd):
@@ -284,6 +298,150 @@ class AppiumDOBPort:
     """Lazy Appium adapter. No date values are used as selectors or logged."""
     def __init__(self, driver, locators: dict):
         self.driver, self.locators, self.elements = driver, dict(locators), {}
+        self._swipe_telemetry = {}
+        self._last_wheel_snapshots = {}
+        self._last_element_counts = {}
+        self._done_snapshot = None
+        self.last_failure = None
+        self.tc004_resume_used = False
+
+    @staticmethod
+    def _shape(value):
+        text = str(value or '').strip()
+        if not text:
+            return 'empty'
+        if re.fullmatch(r'[0-9]+', text):
+            return 'numeric'
+        if ',' in text:
+            return 'comma_token'
+        return 'nonempty'
+
+    @staticmethod
+    def _rect(element):
+        try:
+            rect = element.rect
+            values = [rect[key] for key in ('x', 'y', 'width', 'height')]
+            return [int(float(value)) for value in values]
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return None
+
+    @classmethod
+    def _element_summary(cls, key, element):
+        def attr(name):
+            try:
+                return element.get_attribute(name)
+            except Exception:
+                return None
+
+        try:
+            displayed = bool(element.is_displayed())
+        except Exception:
+            displayed = False
+        try:
+            enabled = bool(element.is_enabled())
+        except Exception:
+            enabled = False
+        class_name = attr('className') or attr('class')
+        text = attr('text')
+        content_desc = attr('content-desc')
+        element_type = (
+            'wheel' if key in ('year', 'month', 'day')
+            else 'confirm_action' if key == 'done'
+            else 'profile_field' if key == 'field'
+            else 'blur_action' if key == 'blur'
+            else 'picker_trigger' if key == 'open'
+            else 'element'
+        )
+        return {
+            'locator_key': key,
+            'class_name': str(class_name) if class_name else None,
+            'element_type': element_type,
+            'displayed': displayed,
+            'enabled': enabled,
+            'content_desc_state': cls._shape(content_desc),
+            'text_state': cls._shape(text),
+            'bounds': cls._rect(element),
+        }
+
+    def record_swipe(self, wheel, before, after, target, direction, fraction, duration,
+                     before_snapshot=None, after_snapshot=None):
+        """Record only non-sensitive movement facts; never serialize wheel values."""
+        value_state = 'month_value_readable' if wheel == 'month' else 'numeric_value_readable'
+        entry = {
+            'before_value_state': value_state,
+            'after_value_state': value_state,
+            'value_changed': bool(before != after),
+            'target_reached': bool(after == target),
+            'direction': 'forward' if direction > 0 else 'backward',
+            'fraction': round(float(fraction), 4),
+            'duration_ms': int(duration),
+            'wheel_element_before': before_snapshot,
+            'wheel_element_after': after_snapshot,
+            'done_actionable_during_picker': bool(
+                self._done_snapshot and self._done_snapshot['displayed']
+                and self._done_snapshot['enabled']
+            ),
+        }
+        self._swipe_telemetry.setdefault(wheel, []).append(entry)
+
+    def wheel_snapshot(self, wheel):
+        return self._last_wheel_snapshots.get(wheel)
+
+    def telemetry(self):
+        """Return sanitized picker telemetry suitable for private-local evidence."""
+        from appium.webdriver.common.appiumby import AppiumBy
+
+        elements = {}
+        for key, locator in self.locators.items():
+            if not isinstance(locator, str) or not locator.startswith('xpath='):
+                elements[key] = {'count': 0, 'actionable_count': 0, 'nodes': [],
+                                 'locator_state': 'unsupported'}
+                continue
+            try:
+                found = self.driver.find_elements(AppiumBy.XPATH, locator[6:])
+            except Exception:
+                found = []
+            nodes = [self._element_summary(key, element) for element in found]
+            elements[key] = {
+                'count': len(found),
+                'actionable_count': sum(1 for node in nodes
+                                        if node['displayed'] and node['enabled']),
+                'nodes': nodes,
+                'locator_state': 'matched' if found else 'not_found',
+            }
+
+        wheel_state = {}
+        for wheel in ('year', 'month', 'day'):
+            entry = elements.get(wheel, {})
+            state = 'unavailable'
+            if entry.get('count'):
+                try:
+                    element = self.driver.find_elements(
+                        AppiumBy.XPATH, self.locators[wheel][6:])[0]
+                    raw = element.get_attribute('content-desc')
+                    parse_wheel(raw, wheel)
+                    state = ('month_value_readable' if wheel == 'month'
+                             else 'numeric_value_readable')
+                except Exception:
+                    state = 'unreadable'
+            wheel_state[wheel] = state
+
+        return {
+            'schema': 'etb_dob_picker_telemetry_v1',
+            'sensitive_values': 'omitted',
+            'picker_visible': any(
+                node['displayed']
+                for wheel in ('year', 'month', 'day')
+                for node in elements.get(wheel, {}).get('nodes', [])
+            ),
+            'elements': elements,
+            'wheel_value_state': wheel_state,
+            'before_after_swipe': self._swipe_telemetry,
+            'done_seen_during_picker': self._done_snapshot,
+            'done_actionable': bool(
+                elements.get('done', {}).get('actionable_count', 0)
+            ),
+        }
 
     def element(self, key):
         from selenium.common.exceptions import StaleElementReferenceException
@@ -292,48 +450,112 @@ class AppiumDOBPort:
         if not locator.startswith('xpath='):
             raise DOBError('DOB_LOCATOR_UNSUPPORTED')
 
-        deadline = time.monotonic() + 1.5
+        # React Native / UiAutomator can briefly expose both the outgoing and
+        # incoming accessibility nodes during picker animation.  Count only
+        # actionable nodes, and reacquire after a stale cached reference.
+        deadline = time.monotonic() + 3.0
         last_count = 0
-        last_actionable = False
+        last_actionable_count = 0
+        stale_seen = False
         while True:
             element = self.elements.get(key)
             if element is not None:
                 try:
                     if element.is_displayed() and element.is_enabled():
+                        self._last_element_counts.setdefault(
+                            key, {'count': 1, 'actionable_count': 1}
+                        )
                         return element
-                    last_count, last_actionable = 1, False
                 except StaleElementReferenceException:
-                    pass
+                    stale_seen = True
                 self.elements.pop(key, None)
 
             try:
                 found = self.driver.find_elements(AppiumBy.XPATH, locator[6:])
                 last_count = len(found)
-                if last_count == 1:
-                    candidate = found[0]
-                    if candidate.is_displayed() and candidate.is_enabled():
-                        self.elements[key] = candidate
-                        return candidate
-                    last_actionable = False
-                else:
-                    last_actionable = False
+                actionable = []
+                for candidate in found:
+                    try:
+                        if candidate.is_displayed() and candidate.is_enabled():
+                            actionable.append(candidate)
+                    except StaleElementReferenceException:
+                        stale_seen = True
+                last_actionable_count = len(actionable)
+                self._last_element_counts[key] = {
+                    'count': last_count,
+                    'actionable_count': last_actionable_count,
+                }
+                if last_actionable_count == 1:
+                    self.elements[key] = actionable[0]
+                    return actionable[0]
             except StaleElementReferenceException:
+                stale_seen = True
                 self.elements.pop(key, None)
 
             if time.monotonic() >= deadline:
-                if last_count != 1:
+                if last_count == 0:
                     raise DOBError('DOB_ELEMENT_MISSING_OR_AMBIGUOUS')
-                if not last_actionable:
+                if last_actionable_count == 0:
+                    if stale_seen:
+                        raise DOBError('DOB_ELEMENT_STALE')
                     raise DOBError('DOB_ELEMENT_NOT_ACTIONABLE')
-                raise DOBError('DOB_ELEMENT_STALE')
+                raise DOBError('DOB_ELEMENT_MISSING_OR_AMBIGUOUS')
             time.sleep(0.05)
 
     def open_picker(self):
-        self.element('open').click()
+        element = self.element('open')
+        try:
+            rect = element.rect
+            x, y, width, height = (float(rect[k]) for k in ('x', 'y', 'width', 'height'))
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise DOBError('DOB_OPEN_GEOMETRY_INVALID') from None
+        if not all(math.isfinite(v) for v in (x, y, width, height)) or min(width, height) <= 0 or x < 0 or y < 0:
+            raise DOBError('DOB_OPEN_GEOMETRY_INVALID')
+        capabilities = getattr(self.driver, 'capabilities', {}) or {}
+        serial = capabilities.get('udid') or capabilities.get('appium:udid')
+        if not isinstance(serial, str) or not serial:
+            raise DOBError('DOB_DEVICE_IDENTITY_UNAVAILABLE')
+        from libraries.android_adb import resolve_adb_executable
+        center_x = int(x + width / 2)
+        center_y = int(y + height / 2)
+        try:
+            result = subprocess.run(
+                [
+                    resolve_adb_executable(), '-s', serial, 'shell', 'input', 'tap',
+                    str(center_x), str(center_y),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            raise DOBError('DOB_OPEN_TAP_FAILED') from None
+        if result.returncode != 0:
+            raise DOBError('DOB_OPEN_TAP_FAILED')
         self.elements.clear()
 
     def read_wheel(self, wheel):
+        from appium.webdriver.common.appiumby import AppiumBy
         element = self.element(wheel)
+        self._last_wheel_snapshots[wheel] = self._element_summary(wheel, element)
+        self._last_wheel_snapshots[wheel].update(
+            self._last_element_counts.get(wheel, {})
+        )
+        if self._done_snapshot is None:
+            try:
+                found = self.driver.find_elements(AppiumBy.XPATH, self.locators['done'][6:])
+                if found:
+                    self._done_snapshot = self._element_summary('done', found[0])
+                    self._done_snapshot.update(
+                        count=len(found),
+                        actionable_count=sum(
+                            1 for candidate in found
+                            if candidate.is_displayed() and candidate.is_enabled()
+                        ),
+                    )
+            except Exception:
+                self._done_snapshot = None
         return parse_wheel(element.get_attribute('content-desc'), wheel)
 
     def swipe(self, wheel, direction, fraction, duration):
@@ -391,13 +613,55 @@ def _driver():
 
 @keyword('Select ETB DOB Exact')
 def select_etb_dob_exact(expected, open_locator, year_locator, month_locator,
-                         day_locator, done_locator, field_locator, blur_locator):
+                         day_locator, done_locator, field_locator, blur_locator,
+                         resume_tc004=False):
     """Returns only non-sensitive metrics. Requires the DOB output sanitizer."""
+    global _LAST_DOB_PORT
     target = parse_dmy(expected)
+    if resume_tc004:
+        from robot.libraries.BuiltIn import BuiltIn
+        port = _LAST_DOB_PORT
+        if (BuiltIn().get_variable_value('${ETB_TC004_DIAGNOSTIC}', False) is not True
+                or port is None or port.driver is not _driver()
+                or port.last_failure != 'DOB_DEADLINE_EXCEEDED'
+                or port.tc004_resume_used):
+            raise DOBError('DOB_TC004_RESUME_NOT_ALLOWED')
+        port.tc004_resume_used = True
+        # Resume only a still-actionable picker. Never toggle it open again or
+        # replay Profile Next. The controller keeps its exact-date safety gates.
+        for key in ('year', 'month', 'day', 'done'):
+            port.element(key)
+        return ExactDOBController(port).select(target, picker_already_open=True)
     port = AppiumDOBPort(_driver(), dict(open=open_locator, year=year_locator,
         month=month_locator, day=day_locator, done=done_locator,
         field=field_locator, blur=blur_locator))
-    return ExactDOBController(port).select(target)
+    _LAST_DOB_PORT = port
+    try:
+        return ExactDOBController(port).select(target)
+    except DOBError as error:
+        port.last_failure = str(error)
+        raise
+
+
+@keyword('Capture ETB DOB Picker Telemetry')
+def capture_etb_dob_picker_telemetry(output_dir, year_locator, month_locator,
+                                     day_locator, done_locator, field_locator,
+                                     blur_locator):
+    """Persist sanitized picker state in the run's private-local evidence area."""
+    global _LAST_DOB_PORT
+    port = _LAST_DOB_PORT
+    if port is None or port.driver is not _driver():
+        port = AppiumDOBPort(_driver(), dict(
+            year=year_locator, month=month_locator, day=day_locator,
+            done=done_locator, field=field_locator, blur=blur_locator,
+        ))
+    evidence_dir = Path(str(output_dir)) / 'private_local'
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    evidence_path = evidence_dir / 'dob_picker_telemetry.json'
+    evidence_path.write_text(
+        json.dumps(port.telemetry(), indent=2, sort_keys=True), encoding='utf-8'
+    )
+    return str(evidence_path)
 
 
 @keyword('Verify Committed DOB Exact')

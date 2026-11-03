@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import os
 import ssl
+import socket
+import ipaddress
+import threading
 from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 from typing import Any, Callable, Mapping
@@ -19,8 +22,10 @@ from urllib.request import HTTPSHandler, HTTPCookieProcessor, Request, build_ope
 from libraries.config_loader import load_yaml as _load_yaml
 
 PDPA_FORM_PATH = "/PDPA_MB/frmIndex"
+PDPA_TRANSPORT_TIMEOUT_SECONDS = 10.0
 _FORM_STATE_NAMES = frozenset({"__VIEWSTATE", "__EVENTVALIDATION"})
 Transport = Callable[[Request], Any]
+_PDPA_DNS_OVERRIDE_LOCK = threading.Lock()
 
 
 class _FormParser(HTMLParser):
@@ -86,7 +91,40 @@ def _open_default() -> Transport:
     # does not contain the internal DEV issuing CA.
     ca_bundle = os.environ.get("PDPA_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
     context = ssl.create_default_context(cafile=ca_bundle) if ca_bundle else ssl.create_default_context()
-    return build_opener(HTTPCookieProcessor(CookieJar()), HTTPSHandler(context=context)).open
+    open_request = build_opener(HTTPCookieProcessor(CookieJar()), HTTPSHandler(context=context)).open
+    preferred_ip = os.environ.get("PDPA_PREFERRED_IP", "").strip()
+    if preferred_ip:
+        try:
+            ipaddress.ip_address(preferred_ip)
+        except ValueError:
+            preferred_ip = ""
+
+    def transport(request: Request) -> Any:
+        if not preferred_ip:
+            return open_request(request, timeout=PDPA_TRANSPORT_TIMEOUT_SECONDS)
+
+        request_host = urlsplit(request.full_url).hostname
+        if not request_host:
+            return open_request(request, timeout=PDPA_TRANSPORT_TIMEOUT_SECONDS)
+
+        original_getaddrinfo = socket.getaddrinfo
+
+        def preferred_getaddrinfo(host: str, port: int | str, *args: Any, **kwargs: Any):
+            if host == request_host:
+                return original_getaddrinfo(preferred_ip, port, *args, **kwargs)
+            return original_getaddrinfo(host, port, *args, **kwargs)
+
+        # Keep the URL/Host/SNI hostname unchanged while selecting one approved
+        # DNS answer for this internal test endpoint. The override is scoped to
+        # the bounded request and serialized to avoid leaking into other calls.
+        with _PDPA_DNS_OVERRIDE_LOCK:
+            socket.getaddrinfo = preferred_getaddrinfo
+            try:
+                return open_request(request, timeout=PDPA_TRANSPORT_TIMEOUT_SECONDS)
+            finally:
+                socket.getaddrinfo = original_getaddrinfo
+
+    return transport
 
 
 def _read_response(response: Any) -> tuple[int, str]:

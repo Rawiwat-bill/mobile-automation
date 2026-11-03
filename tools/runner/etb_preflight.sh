@@ -45,7 +45,7 @@ run_etb_target_preflight() {
 
 run_etb_network_preflight() {
     local network_result
-    if ! network_result="$("$PYTHON_BIN" "$ROOT/tools/etb_network_preflight.py"         --serial "$DEVICE_UDID"         --environment "$ETB_ENVIRONMENT"         --execution-target "$ANDROID_EXECUTION_TARGET")"; then
+    if ! network_result="$("$PYTHON_BIN" "$ROOT/tools/etb_network_preflight.py"         --serial "$DEVICE_UDID"         --environment "$ETB_ENVIRONMENT"         --execution-target "$ANDROID_EXECUTION_TARGET" --ensure-charles)"; then
         printf 'ETB_NETWORK_GATE=CLOSED; emulator proxy/network runtime is not ready.\n' >&2
         exit 3
     fi
@@ -63,6 +63,23 @@ run_etb_appium_preflight() {
 
 run_etb_cis_preflight() {
     local cis_result
+    local selected_case_id
+    local cis_transport_required=false
+    for selected_case_id in "${selected_case_ids[@]}"; do
+        case "$selected_case_id" in
+            TC-ETB-001|TC-ETB-002|TC-ETB-003|TC-ETB-004)
+                cis_transport_required=true
+                break
+                ;;
+        esac
+    done
+
+    if [[ "$ETB_ENVIRONMENT" == "DEV" && "$cis_transport_required" == false ]]; then
+        cis_result='{"cis_mode":"ERROR_VALIDATION","operation_count":0,"ready":"YES","transport_category":"NOT_APPLICABLE"}'
+        printf 'CIS preflight gate passed: %s\n' "$cis_result"
+        return 0
+    fi
+
     if [[ "$ETB_ENVIRONMENT" == "SIT" || "$ETB_ENVIRONMENT" == "sit" ]]; then
         local cis_report_dir="$ETB_OUTPUT/cis-preflight"
         mkdir -p "$cis_report_dir"

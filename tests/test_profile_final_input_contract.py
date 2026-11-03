@@ -26,6 +26,12 @@ def keyword_body(path: Path, name: str) -> str:
 
 
 class ProfileFinalInputContractTests(unittest.TestCase):
+    def test_citizen_input_does_not_block_on_transient_react_native_focus(self) -> None:
+        body = keyword_body(RESOURCE, "Input Citizen ID")
+        self.assertIn("Tap Profile Focus Dismissal Target", body)
+        self.assertIn("Verify Field Value    Citizen ID", body)
+        self.assertNotIn("Wait Until Profile Fields Are Blurred", body)
+
     def test_final_visible_values_are_read_after_blur(self) -> None:
         body = "\n".join(
             keyword_body(RESOURCE, name)
@@ -65,24 +71,24 @@ Wait Until Element Is Visible
 Get Text
     [Arguments]    ${locator}
     IF    '${locator}' == 'CID'
-        RETURN    3100000000001
+        RETURN    123
     ELSE IF    '${locator}' == 'MOBILE'
         RETURN    ${EMPTY}
     END
-    RETURN    09/11/1996
+    RETURN    01/01/2000
 
 Get Element Attribute
     [Arguments]    ${locator}    ${attribute}
     IF    '${locator}' == 'MOBILE' and '${attribute}' == 'value'
-        RETURN    098-973-7491
+        RETURN    456
     END
     RETURN    false
 
 Verify DOB Field Value
     [Arguments]    ${day}    ${month}    ${year}
-    Should Be Equal As Strings    ${day}    09
-    Should Be Equal As Strings    ${month}    11
-    Should Be Equal As Strings    ${year}    1996
+    Should Be Equal As Strings    ${day}    01
+    Should Be Equal As Strings    ${month}    01
+    Should Be Equal As Strings    ${year}    2000
 
 """
                 + body,
@@ -95,10 +101,10 @@ Resource    profile_final_input.resource
 
 *** Test Cases ***
 Final values use visible text and value fallback
-    Verify Current Profile Fields Before Next    3100000000001    09-11-1996    098-973-7491
+    Verify Current Profile Fields Before Next    123    01-01-2000    456
 
 Mismatched final mobile is rejected
-    Run Keyword And Expect Error    *Mobile value mismatch*    Verify Current Profile Fields Before Next    3100000000001    09-11-1996    000-000-0000
+    Run Keyword And Expect Error    *Mobile value mismatch*    Verify Current Profile Fields Before Next    123    01-01-2000    789
 """,
                 encoding="utf-8",
             )

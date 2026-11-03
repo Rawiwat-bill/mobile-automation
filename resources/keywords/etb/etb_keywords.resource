@@ -19,10 +19,12 @@ Resource         ../../pages/etb/three_c_page.resource
 *** Keywords ***
 Complete ETB Onboarding
     [Documentation]    Complete the onboarding flow for ETB.
-    [Arguments]    ${citizen_id}    ${date_of_birth}    ${mobile_number}    ${laser_code}    ${otp}    ${pin}    ${product_selection_policy}=REQUIRED    ${pdpa_policy}=UNRESOLVED    ${expected_product_categories}=${NONE}    ${confirm_pin_policy}=REQUIRED
+    [Arguments]    ${citizen_id}    ${date_of_birth}    ${mobile_number}    ${laser_code}    ${otp}    ${pin}    ${product_selection_policy}=REQUIRED    ${pdpa_policy}=UNRESOLVED    ${expected_product_categories}=${NONE}    ${confirm_pin_policy}=REQUIRED    ${product_selection_diagnostic}=${FALSE}    ${product_selection_category_policy}=ALL
 
     Should Be True    '${confirm_pin_policy}' in ['REQUIRED', 'OPTIONAL']    CONFIRM_PIN_POLICY_INVALID=${confirm_pin_policy}
+    Should Be True    '${product_selection_category_policy}' in ['ALL', 'ANY_SUPPORTED']    PRODUCT_SELECTION_CATEGORY_POLICY_INVALID=${product_selection_category_policy}
 
+    Set Test Variable    ${ETB_TC004_DIAGNOSTIC}    ${product_selection_diagnostic}
     ${common_result}=    Common Onboarding Flow    ${citizen_id}    ${date_of_birth}    ${mobile_number}
     IF    '${common_result}' == '${FLOW_STATE_GOD_013}'
         Fail    BLOCKED_BY_ENVIRONMENT_BACKEND_GOD_013: service unavailable before DOPA.
@@ -70,6 +72,7 @@ Complete ETB Onboarding
     ${confirm_pin_completed}=    Set Variable    ${FALSE}
     ${post_pin_state}=    Wait Until Keyword Succeeds    10s    500ms
     ...    Probe Stable Post First PIN State
+    Log    ETB_POST_FIRST_PIN_STATE=${post_pin_state}    INFO
     IF    '${post_pin_state}' == '${FLOW_STATE_GOD_005}'
         Record ETB Readiness Blocker    ${OUTPUT DIR}    ${FLOW_STATE_GOD_005}    ${TRUE}
         Fail    BLOCKED_BY_ENVIRONMENT_BACKEND_GOD_005: service unavailable after PIN.
@@ -81,8 +84,24 @@ Complete ETB Onboarding
             Fail    CONFIRM_PIN_REQUIRED_BUT_SKIPPED
         END
         IF    '${product_selection_policy}' == 'REQUIRED'
-            Complete Product Selection    ${expected_product_categories}
-            ${product_selection_completed}=    Set Variable    ${TRUE}
+            IF    ${product_selection_diagnostic}
+                ${selection_result}=    Complete Product Selection
+                ...    ${expected_product_categories}
+                ...    diagnostic_mode=${product_selection_diagnostic}
+                ...    category_policy=${product_selection_category_policy}
+                IF    '${selection_result}' == 'PRODUCT_LIST_NOT_RENDERED'
+                    Fail    TC004_PRODUCT_LIST_NOT_RENDERED
+                END
+                IF    '${selection_result}' == 'PRODUCT_SELECTION_SCREEN_CHANGED'
+                    Fail    TC004_PRODUCT_SELECTION_SCREEN_CHANGED
+                END
+                IF    '${selection_result}' == 'COMPLETED'
+                    ${product_selection_completed}=    Set Variable    ${TRUE}
+                END
+            ELSE
+                Complete Product Selection    ${expected_product_categories}    category_policy=${product_selection_category_policy}
+                ${product_selection_completed}=    Set Variable    ${TRUE}
+            END
         ELSE
             Fail    PRODUCT_SELECTION_CONTRACT_VIOLATION
         END
@@ -91,7 +110,8 @@ Complete ETB Onboarding
             Fail    CONFIRM_PIN_REQUIRED_BUT_SKIPPED
         END
         IF    '${product_selection_policy}' == 'REQUIRED'
-            Fail    PRODUCT_SELECTION_REQUIRED_BUT_SKIPPED
+            Record ETB Evidence Capture    ${OUTPUT DIR}    post_pin_required_selection_skipped
+            Fail    PRODUCT_SELECTION_REQUIRED_BUT_SKIPPED observed=${post_pin_state}
         END
     ELSE IF    '${post_pin_state}' == '${FLOW_STATE_EXACT_ERROR}'
         Fail    TC004_POST_FIRST_PIN_EXACT_ERROR
@@ -105,6 +125,7 @@ Complete ETB Onboarding
 
     ${destination}=    Wait Until Keyword Succeeds    ${NCBD_LOADING_TIMEOUT}    500ms
     ...    ETB Post PIN Destination Should Be Displayed
+    Log    ETB_POST_PIN_DESTINATION=${destination} product_selection_completed=${product_selection_completed}    INFO
     IF    '${destination}' == '${FLOW_STATE_GOD_005}'
         Record ETB Readiness Blocker    ${OUTPUT DIR}    ${FLOW_STATE_GOD_005}    ${TRUE}
         Fail    BLOCKED_BY_ENVIRONMENT_BACKEND_GOD_005: service unavailable after PIN.
@@ -114,14 +135,62 @@ Complete ETB Onboarding
     END
     IF    '${destination}' == '${FLOW_STATE_PRODUCT_SELECTION}'
         IF    '${product_selection_policy}' == 'REQUIRED'
-            Complete Product Selection    ${expected_product_categories}
-            ${product_selection_completed}=    Set Variable    ${TRUE}
+            IF    ${product_selection_diagnostic}
+                ${selection_result}=    Complete Product Selection
+                ...    ${expected_product_categories}
+                ...    diagnostic_mode=${product_selection_diagnostic}
+                ...    category_policy=${product_selection_category_policy}
+                IF    '${selection_result}' == 'PRODUCT_LIST_NOT_RENDERED'
+                    Fail    TC004_PRODUCT_LIST_NOT_RENDERED
+                END
+                IF    '${selection_result}' == 'PRODUCT_SELECTION_SCREEN_CHANGED'
+                    Fail    TC004_PRODUCT_SELECTION_SCREEN_CHANGED
+                END
+                IF    '${selection_result}' == 'COMPLETED'
+                    ${product_selection_completed}=    Set Variable    ${TRUE}
+                END
+            ELSE
+                Complete Product Selection    ${expected_product_categories}    category_policy=${product_selection_category_policy}
+                ${product_selection_completed}=    Set Variable    ${TRUE}
+            END
             Wait Until Registration Success Is Displayed
         ELSE
             Fail    PRODUCT_SELECTION_CONTRACT_VIOLATION
         END
     ELSE IF    '${destination}' == '${FLOW_STATE_REGISTRATION_SUCCESS}' and '${product_selection_policy}' == 'REQUIRED' and not ${product_selection_completed}
-        Fail    PRODUCT_SELECTION_REQUIRED_BUT_SKIPPED
+        # Registration Success can become observable before Product Selection finishes rendering.
+        # Give required Product Selection one bounded loading/re-render grace window before declaring it skipped.
+        ${late_selection_visible}=    Run Keyword And Return Status
+        ...    Wait Until Keyword Succeeds    ${NCBD_LOADING_TIMEOUT}    500ms
+        ...    Product Selection Screen Should Be Displayed
+        IF    ${late_selection_visible}
+            IF    ${product_selection_diagnostic}
+                ${selection_result}=    Complete Product Selection
+                ...    ${expected_product_categories}
+                ...    diagnostic_mode=${product_selection_diagnostic}
+                ...    category_policy=${product_selection_category_policy}
+                IF    '${selection_result}' == 'PRODUCT_LIST_NOT_RENDERED'
+                    Fail    TC004_PRODUCT_LIST_NOT_RENDERED
+                END
+                IF    '${selection_result}' == 'PRODUCT_SELECTION_SCREEN_CHANGED'
+                    Fail    TC004_PRODUCT_SELECTION_SCREEN_CHANGED
+                END
+                IF    '${selection_result}' == 'COMPLETED'
+                    ${product_selection_completed}=    Set Variable    ${TRUE}
+                END
+            ELSE
+                Complete Product Selection    ${expected_product_categories}    category_policy=${product_selection_category_policy}
+                ${product_selection_completed}=    Set Variable    ${TRUE}
+            END
+            Wait Until Registration Success Is Displayed
+        ELSE
+            IF    ${product_selection_diagnostic}
+                Log    TC004_PRODUCT_SELECTION_NOT_COMPLETED observed=${destination}    WARN
+            ELSE
+                Record ETB Evidence Capture    ${OUTPUT DIR}    post_pin_destination_required_selection_skipped
+                Fail    PRODUCT_SELECTION_REQUIRED_BUT_SKIPPED observed=${destination}
+            END
+        END
     END
 
     Assert ETB Release Pre-SET
@@ -130,4 +199,7 @@ Complete ETB Onboarding
     Tap Registration Success Continue
     Record ETB Registration Continue End    ${OUTPUT DIR}
     Record ETB Post Success State    ${OUTPUT DIR}
+    IF    ${product_selection_diagnostic}
+        RETURN    ${product_selection_completed}
+    END
     RETURN    ${TRUE}

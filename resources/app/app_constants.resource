@@ -21,6 +21,10 @@ ${DOB_COARSE_END_RATIO}     0.30
 ${DOB_FINE_START_RATIO}     0.60
 ${DOB_FINE_END_RATIO}       0.40
 ${DOB_SETTLE_TIME}          0.3
+# 14 one-year swipes measured ~98s on emulator-5556; retain a hard cap while
+# allowing one final near-target transition to settle.
+${DOB_PICKER_MAX_SECONDS}   120
+${DOB_PICKER_NO_PROGRESS_LIMIT}    2
 
 &{MONTH_MAP}        01=January    02=February    03=March    04=April    05=May    06=June    07=July    08=August    09=September    10=October    11=November    12=December
 &{MONTH_INDEXES}    January=1     February=2     March=3     April=4     May=5     June=6     July=7     August=8     September=9      October=10     November=11     December=12

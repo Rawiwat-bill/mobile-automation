@@ -55,7 +55,7 @@ def fake_adb(serial, *args, **kwargs):
         default_version = {
             ("SIT", "POST_MMP_1"): "versionName=1.12.11-16-Unshield versionCode=16",
             ("SIT", "MMP_LOT2_V2"): "versionName=1.12.11-16-Unshield versionCode=16",
-            ("DEV", "POST_MMP_1"): "versionName=1.14.0-debug-network-post-mmp-1-alpha-24-191-Unshield versionCode=191",
+            ("DEV", "POST_MMP_1"): "versionName=1.15.0-debug-network-post-mmp-2-alpha-23-40-Unshield versionCode=40",
             ("DEV", "MMP_LOT2_V2"): "versionName=1.13.9-145-Unshield-VPN-release-opo-fixed-tandc-not-display versionCode=145",
         }.get((environment, release), "versionName=synthetic versionCode=1")
         return os.environ.get("GUARD_VERSION", default_version)
@@ -76,6 +76,10 @@ guard_module = types.ModuleType("tools.real_device_preflight")
 guard_module.__file__ = os.environ["GUARD_SOURCE"]
 exec(compile(Path(guard_module.__file__).read_text(), guard_module.__file__, "exec"), guard_module.__dict__)
 guard_module.adb = fake_adb
+guard_module._current_dev_apk_identity = lambda: (
+    "1.15.0-debug-network-post-mmp-2-alpha-23-40-Unshield",
+    "40",
+)
 sys.modules["tools"] = tools_package
 sys.modules["tools.real_device_preflight"] = guard_module
 '''
@@ -191,7 +195,7 @@ class RunnerTargetGuardTests(BASE.RunnerProfileContractTests):
         self.assertEqual(len(runtime), 1)
         self.assertEqual(runtime[0]["child_env"]["DEVICE_UDID"], "emulator-5556")
 
-    def test_dev_mmp_build_145_is_release_bound_and_post_mmp_191_is_rejected_for_mmp(self):
+    def test_dev_mmp_build_145_is_release_bound_and_post_mmp_205_is_rejected_for_mmp(self):
         result, events = self.run_fixture(env={
             "ETB_ENVIRONMENT": "DEV",
             "ETB_PRODUCT_RELEASE": "MMP_LOT2_V2",
@@ -211,7 +215,7 @@ class RunnerTargetGuardTests(BASE.RunnerProfileContractTests):
             "ANDROID_EXECUTION_TARGET": "DIAGNOSTIC_CONTROL",
             "DEVICE_UDID": "emulator-5556",
             "GUARD_AVD": "Pixel_10_PlayStore",
-            "GUARD_VERSION": "versionName=1.14.0-debug-network-post-mmp-1-alpha-24-191-Unshield versionCode=191",
+            "GUARD_VERSION": "versionName=1.14.0-debug-network-post-mmp-1-alpha-33-205-Unshield-VPN versionCode=205",
         })
         self.assertEqual(result.returncode, 3)
         self.assertNotIn("robot", [event["op"] for event in events])
@@ -247,6 +251,19 @@ class RunnerTargetGuardTests(BASE.RunnerProfileContractTests):
         runtime = [event for event in events if event["op"] == "robot"]
         self.assertEqual(len(runtime), 1)
         self.assertEqual(runtime[0]["child_env"]["DEVICE_UDID"], "SYNTHETIC_OPPO_DEVICE")
+
+    def test_vivo_v2327_is_approved_real_target(self):
+        result, events = self.run_fixture(env={
+            "ANDROID_EXECUTION_TARGET": "REAL",
+            "DEVICE_UDID": "SYNTHETIC_VIVO_DEVICE",
+            "GUARD_QEMU": "0",
+            "GUARD_MAKER": "vivo",
+            "GUARD_MODEL": "V2327",
+        })
+        self.assert_success(result)
+        runtime = [event for event in events if event["op"] == "robot"]
+        self.assertEqual(len(runtime), 1)
+        self.assertEqual(runtime[0]["child_env"]["DEVICE_UDID"], "SYNTHETIC_VIVO_DEVICE")
 
     def test_physical_readiness_failure_is_before_package_and_cis(self):
         result, events = self.run_fixture(env={
@@ -456,6 +473,34 @@ class ReadinessReadOnlyTests(unittest.TestCase):
                 module.adb("emulator-5554", "get-state")
         self.assertEqual(run_mock.call_count, 5)
         self.assertEqual(sleep_mock.call_count, 2)
+
+    def test_current_dev_apk_identity_resolves_aapt_from_selected_adb_sdk(self):
+        module = types.ModuleType("preflight_apk_identity")
+        exec(compile((ROOT / "tools/real_device_preflight.py").read_text(), "<preflight>", "exec"), module.__dict__)
+        with tempfile.TemporaryDirectory() as temporary:
+            sdk = Path(temporary) / "sdk"
+            adb = sdk / "platform-tools" / "adb"
+            aapt = sdk / "build-tools" / "35.0.0" / "aapt"
+            apk = Path(temporary) / "app-dev.apk"
+            for path in (adb, aapt, apk):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            aapt.chmod(0o755)
+            completed = subprocess.CompletedProcess(
+                [],
+                0,
+                stdout=(
+                    "package: name='com.bangkokbank.blue.dev' versionCode='40' "
+                    "versionName='1.15.0-debug-network-post-mmp-2-alpha-23-40-Unshield'\n"
+                ),
+                stderr="",
+            )
+            with patch.object(module, "CURRENT_DEV_APK", apk), \
+                 patch.object(module, "resolve_adb_executable", return_value=str(adb)), \
+                 patch.object(module.subprocess, "run", return_value=completed) as run_mock:
+                identity = module._current_dev_apk_identity()
+        self.assertEqual(identity, ("1.15.0-debug-network-post-mmp-2-alpha-23-40-Unshield", "40"))
+        self.assertEqual(run_mock.call_args.args[0][0], str(aapt.resolve()))
 
     def test_readiness_does_not_wake_device(self):
         module = types.ModuleType("preflight_under_test")

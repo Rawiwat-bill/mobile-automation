@@ -12,6 +12,10 @@ Resource         ../pages/onboarding/profile_screen_page.resource
 Resource         appium_expectations.resource
 
 
+*** Variables ***
+${ETB_TC004_DIAGNOSTIC}        ${FALSE}
+
+
 *** Keywords ***
 Run Common Onboarding
     [Documentation]    Complete the shared Landing -> Terms -> Profile path.
@@ -40,7 +44,15 @@ Run Common Onboarding
 
     Wait Until Profile Screen Is Displayed
     Input Citizen ID    ${citizen_id}
-    profile_screen_page.Input Date Of Birth    ${date_of_birth}
+    ${tc004_diagnostic}=    Get Variable Value    ${ETB_TC004_DIAGNOSTIC}    ${FALSE}
+    IF    ${tc004_diagnostic}
+        ${dob_result}=    Input TC004 Date Of Birth With Terms Recovery    ${date_of_birth}
+        IF    '${dob_result}' == '${FLOW_STATE_AJI_001}'
+            RETURN    ${FLOW_STATE_AJI_001}
+        END
+    ELSE
+        profile_screen_page.Input Date Of Birth    ${date_of_birth}
+    END
     Input Mobile Number    ${mobile_number}
     Verify Current Profile Fields Before Next    ${citizen_id}    ${date_of_birth}    ${mobile_number}
     ${profile_result}=    Tap Profile Next
@@ -63,6 +75,38 @@ Run Common Onboarding
     ...    ${profile_result}
     ...    ${FLOW_STATE_PROFILE_LEFT_OR_NEXT}
     ...    COMMON_ONBOARDING_PROFILE_DID_NOT_TRANSITION
+    RETURN    ${FLOW_STATE_NEXT}
+
+Input TC004 Date Of Birth With Terms Recovery
+    [Documentation]    Retry only when a TC004 DOB transition failure leaves the visible Terms UI actionable.
+    [Arguments]    ${date_of_birth}
+    ${dob_status}    ${dob_error}=    Run Keyword And Ignore Error
+    ...    profile_dob.Input TC004 DOB With Deadline Recovery    ${date_of_birth}
+    IF    '${dob_status}' == 'PASS'
+        ${telemetry_status}    ${telemetry_path}=    Run Keyword And Ignore Error
+        ...    profile_dob.Capture TC004 DOB Picker Telemetry    ${OUTPUT DIR}
+        Log    TC004_DOB_PICKER_TELEMETRY status=${telemetry_status} path=${telemetry_path}    WARN
+        RETURN    ${FLOW_STATE_NEXT}
+    END
+    ${terms_overlay}=    Run Keyword And Return Status
+    ...    Element Should Be Visible Now    ${TERMS_AND_CONDITIONS_ACCEPT_BUTTON}
+    IF    not ${terms_overlay}
+        Fail    ${dob_error}
+    END
+    Log    TC004_TERMS_OVERLAY_REAPPEARED_DURING_DOB=TRUE; retrying visible Accept action.    WARN
+    ${recovery_result}=    Accept Terms And Conditions
+    IF    '${recovery_result}' == '${FLOW_STATE_AJI_001}'
+        RETURN    ${FLOW_STATE_AJI_001}
+    END
+    Should Be Equal As Strings    ${recovery_result}    ${FLOW_STATE_NEXT}
+    ...    TC004_TERMS_RECOVERY_DID_NOT_TRANSITION
+    Wait Until Profile Screen Is Displayed
+    ${retry_status}    ${retry_error}=    Run Keyword And Ignore Error
+    ...    profile_dob.Input TC004 DOB With Deadline Recovery    ${date_of_birth}
+    ${telemetry_status}    ${telemetry_path}=    Run Keyword And Ignore Error
+    ...    profile_dob.Capture TC004 DOB Picker Telemetry    ${OUTPUT DIR}
+    Log    TC004_DOB_PICKER_TELEMETRY status=${telemetry_status} path=${telemetry_path}    WARN
+    Should Be Equal As Strings    ${retry_status}    PASS    ${retry_error}
     RETURN    ${FLOW_STATE_NEXT}
 
 Advance Landing To Terms Destination

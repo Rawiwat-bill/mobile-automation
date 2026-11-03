@@ -106,7 +106,7 @@ class ETBEvidenceIndexTests(unittest.TestCase):
                     case3 / "safe_metadata.json",
                     {
                         "artifact_classification": "PRIVATE_LOCAL",
-                        "never_copy_this_secret": "9999999999999",
+                        "never_copy_this_secret": "SENSITIVE_TEST_VALUE",
                     },
                 )
 
@@ -179,7 +179,7 @@ class ETBEvidenceIndexTests(unittest.TestCase):
                         }
                     ],
                 )
-                self.assertNotIn("9999999999999", serialized)
+                self.assertNotIn("SENSITIVE_TEST_VALUE", serialized)
                 self.assertNotIn("never_copy_this_secret", serialized)
             finally:
                 evidence_index._PROJECT_ROOT = previous_root

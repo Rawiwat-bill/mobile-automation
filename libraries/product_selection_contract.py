@@ -10,6 +10,9 @@ import re
 from collections.abc import Iterable
 
 
+SUPPORTED_PRODUCT_CATEGORIES = ("Saving", "e-Saving")
+
+
 def _normalize(value: object) -> str:
     text = str(value).casefold().replace("–", "-").replace("—", "-")
     return " ".join(re.sub(r"[^a-z0-9]+", " ", text).split())
@@ -39,13 +42,30 @@ def _matches(actual: str, expected: str) -> bool:
 def validate_product_categories(
     actual_names: Iterable[object] | None,
     expected_categories: Iterable[object] | None,
+    category_policy: str = "ALL",
 ) -> bool:
-    """Fail unless every expected category is represented by the live UI labels."""
+    """Validate the supported product category contract against live UI labels."""
+    policy = str(category_policy or "ALL").strip().upper()
+    if policy not in {"ALL", "ANY_SUPPORTED"}:
+        raise ValueError("PRODUCT_SELECTION_CATEGORY_POLICY_INVALID=" + policy)
+
     expected = [str(value).strip() for value in (expected_categories or []) if str(value).strip()]
+    actual = [str(value).strip() for value in (actual_names or []) if str(value).strip()]
+
+    if policy == "ANY_SUPPORTED":
+        supported = expected or list(SUPPORTED_PRODUCT_CATEGORIES)
+        if any(
+            any(_matches(name, category) for category in supported)
+            for name in actual
+        ):
+            return True
+        raise AssertionError(
+            "PRODUCT_SELECTION_SUPPORTED_CATEGORIES_MISSING=" + ",".join(supported)
+        )
+
     if not expected:
         return True
 
-    actual = [str(value).strip() for value in (actual_names or []) if str(value).strip()]
     missing = [category for category in expected if not any(_matches(name, category) for name in actual)]
     if missing:
         raise AssertionError(

@@ -59,12 +59,46 @@ class RobotOutputSanitizer:
 
     def __init__(self) -> None:
         self._sensitive_values: set[str] = set()
+        self._dob_depth = 0
+
+    @staticmethod
+    def _dob_keyword(name: str) -> bool:
+        return _keyword_name(name) in {
+            'input date of birth', 'verify dob field value',
+            'select etb dob exact', 'verify committed dob exact',
+        }
+
+    @staticmethod
+    def _dob_message(text: str) -> str:
+        # Keep fixed diagnostic categories, not raw field values or selectors.
+        codes = re.findall(r'\bDOB_[A-Z_]+\b', text)
+        if codes:
+            return ' '.join(dict.fromkeys(codes))
+        missing_keyword = re.search(r"No keyword with name '([^']+)' found", text)
+        if missing_keyword:
+            safe_name = _keyword_name(missing_keyword.group(1)).upper().replace(" ", "_")
+            return f"DOB_KEYWORD_NOT_FOUND:{safe_name}"
+        return '[DOB] sensitive detail redacted'
 
     def _remember(self, values: Iterable[Any]) -> None:
         for value in values:
             text = _as_text(value)
             if text and text not in {"None", "False", "True", "${EMPTY}"}:
                 self._sensitive_values.add(text)
+                # The displayed DOB can differ from the source's numeric format.
+                # Remember full-date aliases, never individual day/year digits.
+                try:
+                    from libraries.etb_dob_candidate import parse_dmy
+                    dob = parse_dmy(text)
+                except (AssertionError, ImportError):
+                    continue
+                names = ('January', 'February', 'March', 'April', 'May', 'June',
+                         'July', 'August', 'September', 'October', 'November', 'December')
+                for day in (str(dob.day), f'{dob.day:02d}'):
+                    for month in (str(dob.month), f'{dob.month:02d}',
+                                  names[dob.month-1], names[dob.month-1][:3]):
+                        for separator in ('-', '/', ' '):
+                            self._sensitive_values.add(f'{day}{separator}{month}{separator}{dob.year}')
 
     def _redact_text(self, text: str) -> str:
         redacted = text
@@ -109,17 +143,40 @@ class RobotOutputSanitizer:
         return [self._sanitize_text(_as_text(value)) if isinstance(value, str) else value for value in values]
 
     def start_keyword(self, data: Any, result: Any) -> None:
-        result.args = self._redact_args(result.name, result.args)
+        if self._dob_keyword(result.name):
+            values = list(result.args)
+            normalized = _keyword_name(result.name)
+            if normalized in {'input date of birth', 'select etb dob exact'}:
+                self._remember(values[:1])
+            elif len(values) >= 3:
+                self._remember(['-'.join(_as_text(v) for v in values[:3])])
+            self._dob_depth += 1
+        if self._dob_depth:
+            result.args = [_REDACTED for _ in result.args]
+        else:
+            result.args = self._redact_args(result.name, result.args)
         if isinstance(getattr(result, "doc", None), str):
             result.doc = self._sanitize_text(result.doc)
 
     def end_keyword(self, data: Any, result: Any) -> None:
         if isinstance(getattr(result, "message", None), str):
-            result.message = self._sanitize_text(result.message)
+            result.message = (self._dob_message(result.message) if self._dob_depth
+                              else self._sanitize_text(result.message))
+        if self._dob_keyword(result.name):
+            self._dob_depth = max(0, self._dob_depth - 1)
+
+    def end_test(self, data: Any, result: Any) -> None:
+        # Restore the scope even after an interrupted DOB keyword.
+        if isinstance(getattr(result, 'message', None), str):
+            result.message = (self._dob_message(result.message)
+                              if 'DOB_' in result.message
+                              else self._sanitize_text(result.message))
+        self._dob_depth = 0
 
     def log_message(self, message: Any) -> None:
         if isinstance(getattr(message, "message", None), str):
-            message.message = self._sanitize_text(message.message)
+            message.message = (self._dob_message(message.message) if self._dob_depth
+                               else self._sanitize_text(message.message))
 
     def message(self, message: Any) -> None:
         self.log_message(message)
@@ -144,3 +201,7 @@ def log_message(message: Any) -> None:
 
 def message(message: Any) -> None:
     _listener.message(message)
+
+
+def end_test(data: Any, result: Any) -> None:
+    _listener.end_test(data, result)
