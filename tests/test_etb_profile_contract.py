@@ -325,6 +325,8 @@ class RunnerProfileContractTests(unittest.TestCase):
     def test_selected_013_does_not_prepare_unselected_001_in_runner(self):
         result, events = self.run_fixture()
         self.assert_success(result)
+        self.assertIn('"cis_mode":"ERROR_VALIDATION"', result.stdout)
+        self.assertIn('"operation_count":0', result.stdout)
         self.assertEqual([e for e in events if e["op"] in {"prepare", "cleanup"}], [])
         calls = [e for e in events if e["op"] == "robot"]
         self.assertEqual(len(calls), 1)
@@ -361,7 +363,7 @@ class RunnerProfileContractTests(unittest.TestCase):
         self.assertTrue(all(e["op"] == "robot_dryrun" for e in events))
 
     def test_failed_transport_probe_blocks_before_device_and_runtime(self):
-        result, events = self.run_fixture(env={"CONTRACT_PROBE_FAIL": "1"})
+        result, events = self.run_fixture(["TC-ETB-001"], env={"CONTRACT_PROBE_FAIL": "1"})
         self.assertEqual(result.returncode, 3)
         self.assertNotIn("device_preflight_stub", [e["op"] for e in events])
         self.assertNotIn("robot", [e["op"] for e in events])
