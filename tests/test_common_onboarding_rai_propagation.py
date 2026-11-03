@@ -89,7 +89,7 @@ Resource    common_rai.resource
 
 *** Test Cases ***
 RAI remains an observed route
-    ${result}=    Run Common Onboarding    CID    09-11-1996    098-973-7491
+    ${result}=    Run Common Onboarding    CID    DOB    MOBILE
     Should Be Equal As Strings    ${result}    RAI-033
 """,
                 encoding="utf-8",

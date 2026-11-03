@@ -75,7 +75,7 @@ Get Text
     ELSE IF    '${locator}' == 'MOBILE'
         RETURN    ${EMPTY}
     END
-    RETURN    09/11/1996
+    RETURN    01/01/2000
 
 Get Element Attribute
     [Arguments]    ${locator}    ${attribute}
@@ -86,9 +86,9 @@ Get Element Attribute
 
 Verify DOB Field Value
     [Arguments]    ${day}    ${month}    ${year}
-    Should Be Equal As Strings    ${day}    09
-    Should Be Equal As Strings    ${month}    11
-    Should Be Equal As Strings    ${year}    1996
+    Should Be Equal As Strings    ${day}    01
+    Should Be Equal As Strings    ${month}    01
+    Should Be Equal As Strings    ${year}    2000
 
 """
                 + body,
@@ -101,10 +101,10 @@ Resource    profile_final_input.resource
 
 *** Test Cases ***
 Final values use visible text and value fallback
-    Verify Current Profile Fields Before Next    123    09-11-1996    456
+    Verify Current Profile Fields Before Next    123    01-01-2000    456
 
 Mismatched final mobile is rejected
-    Run Keyword And Expect Error    *Mobile value mismatch*    Verify Current Profile Fields Before Next    123    09-11-1996    789
+    Run Keyword And Expect Error    *Mobile value mismatch*    Verify Current Profile Fields Before Next    123    01-01-2000    789
 """,
                 encoding="utf-8",
             )
