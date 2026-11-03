@@ -186,6 +186,8 @@ def enforce(serial: str, environment: str, execution_target: str, *, ensure_prox
         ready, category = ensure_charles() if ensure_proxy else charles_readiness()
     if not ready:
         return False, category
+    if mode == "MANAGED":
+        return True, "LOCAL_READY"
     ready, category = native_dns_readiness(serial)
     if not ready:
         return False, category
@@ -211,10 +213,11 @@ def main() -> int:
     if category == "NOT_APPLICABLE":
         print("ETB_NETWORK_GATE=NOT_APPLICABLE")
     else:
-        _, expected_proxy = selected_proxy()
+        mode, expected_proxy = selected_proxy()
+        native_dns = "PROXY_RESOLVED" if mode == "MANAGED" else "READY"
         print(
             "ETB_NETWORK_GATE=LOCAL_READY "
-            f"serial={args.serial} proxy={expected_proxy} host_listener=READY native_dns=READY "
+            f"serial={args.serial} proxy={expected_proxy} host_listener=READY native_dns={native_dns} "
             "upstream=NOT_CHECKED service=NOT_CHECKED"
         )
     return 0

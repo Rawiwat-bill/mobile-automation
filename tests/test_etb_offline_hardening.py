@@ -74,9 +74,9 @@ class NetworkGateTests(unittest.TestCase):
             self.assertEqual(NET.enforce('emulator-5554','DEV','DIAGNOSTIC_CONTROL'),(True,'LOCAL_READY'))
 
     def test_managed_mode_uses_repo_proxy_without_charles(self):
-        with patch.dict(NET.os.environ,{'ETB_NETWORK_PROXY_MODE':'MANAGED'}),patch.object(NET,'native_dns_readiness',return_value=(True,'READY')),patch.object(NET,'adb',return_value=Mock(returncode=0,stdout='device')),patch.object(NET,'get_proxy',return_value='10.0.2.2:8899'),patch.object(NET,'managed_proxy_readiness',return_value=(True,'READY')) as managed,patch.object(NET,'charles_readiness') as charles:
+        with patch.dict(NET.os.environ,{'ETB_NETWORK_PROXY_MODE':'MANAGED'}),patch.object(NET,'native_dns_readiness') as native_dns,patch.object(NET,'adb',return_value=Mock(returncode=0,stdout='device')),patch.object(NET,'get_proxy',return_value='10.0.2.2:8899'),patch.object(NET,'managed_proxy_readiness',return_value=(True,'READY')) as managed,patch.object(NET,'charles_readiness') as charles:
             self.assertEqual(NET.enforce('emulator-5556','DEV','DIAGNOSTIC_CONTROL',ensure_proxy=True),(True,'LOCAL_READY'))
-        managed.assert_called_once_with(ensure=True);charles.assert_not_called()
+        managed.assert_called_once_with(ensure=True);charles.assert_not_called();native_dns.assert_not_called()
 
     def test_invalid_proxy_mode_fails_closed(self):
         with patch.dict(NET.os.environ,{'ETB_NETWORK_PROXY_MODE':'INVALID'}),patch.object(NET,'adb',return_value=Mock(returncode=0,stdout='device')):
