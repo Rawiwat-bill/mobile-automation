@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Launch, ensure, and validate the repo-managed Appium server.
 
-IRIS/package runners may sandbox HOME to the project root and omit Android SDK
+Package runners may sandbox HOME to the project root and omit Android SDK
 variables. Appium resolves installed drivers from APPIUM_HOME/HOME and
 UiAutomator2 resolves ADB from ANDROID_HOME/ANDROID_SDK_ROOT. This launcher
 restores those account-level runtime variables and records a local runtime
